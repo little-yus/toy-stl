@@ -66,3 +66,46 @@ TEST_CASE("Constructor from size and value") {
         CHECK(all_elements_are_initialized);
     }
 }
+
+TEST_CASE("Subscript operator") {
+    SUBCASE("Reading from default initialized vector") {
+        my::vector<int> vec(10);
+        CHECK(vec[0] == 0);
+    }
+
+    SUBCASE("Reading from value initialized vector") {
+        my::vector<int> vec(10, 123);
+        CHECK(vec[0] == 123);
+    }
+
+    SUBCASE("Writing at the same position") {
+        my::vector<int> vec(10);
+
+        vec[0] = 123;
+        CHECK(vec[0] == 123);
+
+        vec[0] = 456;
+        CHECK(vec[0] == 456);
+    }
+
+    SUBCASE("Writing same value at different positions") {
+        my::vector<int> vec(10);
+
+        vec[0] = 123;
+        CHECK(vec[0] == 123);
+
+        vec[1] = 123;
+        CHECK(vec[1] == 123);
+    }
+
+    SUBCASE("Writing different values at different positions") {
+        my::vector<int> vec(10);
+
+        vec[0] = 123;
+        CHECK(vec[0] == 123);
+
+        vec[1] = 456;
+        CHECK(vec[0] == 123);
+        CHECK(vec[1] == 456);
+    }
+}
