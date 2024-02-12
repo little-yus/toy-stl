@@ -19,4 +19,19 @@ TEST_CASE("Constructor from size") {
     
         CHECK(vec.size() == 123);
     }
+
+    SUBCASE("Zero initialized elements") {
+        const std::size_t size = 10;
+        my::vector<int> vec(size);
+
+        bool all_elements_are_zero = true;
+        for (int i = 0; i < size; i += 1) {
+            if (vec[i] != int{0}) {
+                all_elements_are_zero = false;
+                break;
+            }
+        }
+    
+        CHECK(all_elements_are_zero);
+    }
 }
