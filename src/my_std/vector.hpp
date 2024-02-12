@@ -9,13 +9,14 @@ namespace my
     public:
         vector();
         vector(std::size_t size);
+        vector(std::size_t size, const T& value);
 
         bool empty();
         std::size_t size() const;
         const T& operator[] (std::size_t index) const;
     private:
         std::size_t size_ {0};
-        T data {0}; // This one variable is enough to pass test case
+        T data {0}; // This is still enough
     };
 
     template <typename T>
@@ -26,6 +27,12 @@ namespace my
 
     template <typename T>
     vector<T>::vector(std::size_t size) : size_{size}
+    {
+
+    }
+
+    template <typename T>
+    vector<T>::vector(std::size_t size, const T& value) : size_{size}, data{value}
     {
 
     }
