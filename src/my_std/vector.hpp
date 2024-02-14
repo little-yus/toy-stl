@@ -2,6 +2,7 @@
 #define VECTOR_HPP
 
 #include <memory>
+#include <stdexcept>
 
 namespace my
 {
@@ -21,8 +22,12 @@ namespace my
 
         bool empty();
         std::size_t size() const;
+
         T& operator[] (std::size_t index);
         const T& operator[] (std::size_t index) const;
+
+        T& at(std::size_t index);
+        const T& at(std::size_t index) const;
     private:
         std::size_t size_ {0};
         std::unique_ptr<T[]> data_ {nullptr};
@@ -93,6 +98,26 @@ namespace my
     const T& vector<T>::operator[] (std::size_t index) const
     {
         return data_[index];
+    }
+
+    template <typename T>
+    T& vector<T>::at(std::size_t index)
+    {
+        if (index >= size_) {
+            throw std::out_of_range("Invalid element index");
+        }
+
+        return (*this)[index];
+    }
+
+    template <typename T>
+    const T& vector<T>::at(std::size_t index) const
+    {
+        if (index >= size_) {
+            throw std::out_of_range("Invalid element index");
+        }
+
+        return (*this)[index];
     }
 }
 

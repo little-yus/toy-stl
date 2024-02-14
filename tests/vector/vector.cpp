@@ -1,8 +1,6 @@
 #include "doctest/doctest.h"
 #include "my_std/vector.hpp"
 
-#include <iostream>
-
 TEST_CASE("Default constructor") {
     my::vector<int> vec;
     
@@ -165,5 +163,56 @@ TEST_CASE("Subscript operator") {
         vec[1] = 456;
         CHECK(vec[0] == 123);
         CHECK(vec[1] == 456);
+    }
+}
+
+TEST_CASE("Function at") {
+    SUBCASE("Reading from default initialized vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.at(0) == 0);
+    }
+
+    SUBCASE("Reading from value initialized vector") {
+        my::vector<int> vec(10, 123);
+        CHECK(vec.at(0) == 123);
+    }
+
+    SUBCASE("Writing at the same position") {
+        my::vector<int> vec(10);
+
+        vec.at(0) = 111;
+        CHECK(vec.at(0) == 111);
+
+        vec.at(0) = 222;
+        CHECK(vec.at(0) == 222);
+    }
+
+    SUBCASE("Writing same value at different positions") {
+        my::vector<int> vec(10);
+
+        vec.at(0) = 123;
+        CHECK(vec.at(0) == 123);
+
+        vec.at(1) = 123;
+        CHECK(vec.at(1) == 123);
+    }
+
+    SUBCASE("Writing different values at different positions") {
+        my::vector<int> vec(10);
+
+        vec.at(0) = 111;
+        CHECK(vec.at(0) == 111);
+
+        vec.at(1) = 222;
+        CHECK(vec.at(0) == 111);
+        CHECK(vec.at(1) == 222);
+    }
+
+    SUBCASE("Writing different values at different positions") {
+        const std::size_t size = 10;
+        my::vector<int> vec(size);
+
+        CHECK_THROWS_AS(vec.at(size + 1), std::out_of_range);
+        CHECK_THROWS_AS(vec.at(-1), std::out_of_range);
     }
 }
