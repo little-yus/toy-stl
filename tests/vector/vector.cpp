@@ -1,6 +1,8 @@
 #include "doctest/doctest.h"
 #include "my_std/vector.hpp"
 
+#include <iostream>
+
 TEST_CASE("Default constructor") {
     my::vector<int> vec;
     
@@ -34,6 +36,19 @@ TEST_CASE("Constructor from size") {
     
         CHECK(all_elements_are_zero);
     }
+}
+
+TEST_CASE("Move constructor") {
+    my::vector<int> vec_a(3);
+    vec_a[0] = 111;
+    vec_a[1] = 222;
+    vec_a[2] = 333;
+
+    my::vector<int> vec_b(std::move(vec_a));
+    
+    CHECK(vec_b[0] == 111);
+    CHECK(vec_b[1] == 222);
+    CHECK(vec_b[2] == 333);
 }
 
 TEST_CASE("Constructor from size and value") {
