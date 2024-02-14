@@ -13,6 +13,12 @@ namespace my
         vector(std::size_t size);
         vector(std::size_t size, const T& value);
 
+        vector(const vector& other);
+        vector& operator= (vector other);
+
+        vector(vector&& other) = default;
+        vector& operator= (vector&& other) = default;
+
         bool empty();
         std::size_t size() const;
         T& operator[] (std::size_t index);
@@ -47,6 +53,21 @@ namespace my
         for (T* ptr = begin; ptr != end; ptr += 1) {
             *ptr = value;
         }
+    }
+
+    template <typename T>
+    vector<T>::vector(const vector& other) : size_{other.size_}, data_{std::make_unique<T[]>(other.size_)}
+    {
+        for (std::size_t i = 0; i < size_; i += 1) {
+            data_[i] = other.data_[i];
+        }
+    }
+
+    template <typename T>
+    vector<T>& vector<T>::operator= (vector other)
+    {
+        std::swap(*this, other);
+        return *this;
     }
 
     // Other functions

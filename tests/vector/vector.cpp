@@ -39,12 +39,55 @@ TEST_CASE("Constructor from size") {
 }
 
 TEST_CASE("Move constructor") {
+    SUBCASE("Primitive type") {
+        my::vector<int> vec_a(3);
+        vec_a[0] = 111;
+        vec_a[1] = 222;
+        vec_a[2] = 333;
+
+        my::vector<int> vec_b(std::move(vec_a));
+        
+        CHECK(vec_b[0] == 111);
+        CHECK(vec_b[1] == 222);
+        CHECK(vec_b[2] == 333);
+    }
+
+    SUBCASE("Move only type") {
+        class MoveOnly
+        {
+        public:
+            MoveOnly() {};
+            MoveOnly(int value) : value(value) {}
+
+            MoveOnly(const MoveOnly&) = delete;
+            MoveOnly& operator= (const MoveOnly&) = delete;
+
+            MoveOnly(MoveOnly&&) = default;
+            MoveOnly& operator= (MoveOnly&&) = default;
+
+            int value{0};
+        };
+
+        my::vector<MoveOnly> vec_a(3);
+        vec_a[0] = 111;
+        vec_a[1] = 222;
+        vec_a[2] = 333;
+
+        my::vector<MoveOnly> vec_b(std::move(vec_a));
+        
+        CHECK(vec_b[0].value == 111);
+        CHECK(vec_b[1].value == 222);
+        CHECK(vec_b[2].value == 333);
+    }
+}
+
+TEST_CASE("Copy constructor") {
     my::vector<int> vec_a(3);
     vec_a[0] = 111;
     vec_a[1] = 222;
     vec_a[2] = 333;
 
-    my::vector<int> vec_b(std::move(vec_a));
+    my::vector<int> vec_b(vec_a);
     
     CHECK(vec_b[0] == 111);
     CHECK(vec_b[1] == 222);
