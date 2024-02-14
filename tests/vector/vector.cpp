@@ -166,7 +166,7 @@ TEST_CASE("Subscript operator") {
     }
 }
 
-TEST_CASE("Function at") {
+TEST_CASE("Subscript with bounds checking") {
     SUBCASE("Reading from default initialized vector") {
         my::vector<int> vec(10);
         CHECK(vec.at(0) == 0);
@@ -214,5 +214,39 @@ TEST_CASE("Function at") {
 
         CHECK_THROWS_AS(vec.at(size + 1), std::out_of_range);
         CHECK_THROWS_AS(vec.at(-1), std::out_of_range);
+    }
+}
+
+TEST_CASE("Front function") {
+    SUBCASE("Reading") {
+        my::vector<int> vec(10);
+        vec[0] = 123;
+
+        CHECK(std::as_const(vec).front() == 123);
+    }
+
+    SUBCASE("Writing") {
+        my::vector<int> vec(10);
+        vec.front() = 123;
+
+        CHECK(vec[0] == 123);
+    }
+}
+
+TEST_CASE("Back function") {
+    const std::size_t size = 10;
+
+    SUBCASE("Reading") {
+        my::vector<int> vec(size);
+        vec[size - 1] = 123;
+
+        CHECK(std::as_const(vec).back() == 123);
+    }
+
+    SUBCASE("Writing") {
+        my::vector<int> vec(size);
+        vec.back() = 123;
+
+        CHECK(vec[size - 1] == 123);
     }
 }

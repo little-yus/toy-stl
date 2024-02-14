@@ -34,6 +34,13 @@ namespace my
 
         T& at(std::size_t index);
         const T& at(std::size_t index) const;
+
+        T& front();
+        const T& front() const;
+
+        T& back();
+        const T& back() const;
+
     private:
         std::size_t size_ {0};
         std::unique_ptr<T[]> data_ {nullptr};
@@ -109,7 +116,7 @@ namespace my
     template <typename T>
     T& vector<T>::at(std::size_t index)
     {
-        if (index >= size_) {
+        if (index >= size()) {
             throw std::out_of_range("Invalid element index");
         }
 
@@ -119,11 +126,35 @@ namespace my
     template <typename T>
     const T& vector<T>::at(std::size_t index) const
     {
-        if (index >= size_) {
+        if (index >= size()) {
             throw std::out_of_range("Invalid element index");
         }
 
         return (*this)[index];
+    }
+
+    template <typename T>
+    T& vector<T>::front()
+    {
+        return (*this)[0];
+    }
+
+    template <typename T>
+    const T& vector<T>::front() const
+    {
+        return (*this)[0];
+    }
+
+    template <typename T>
+    T& vector<T>::back()
+    {
+        return (*this)[size() - 1];
+    }
+
+    template <typename T>
+    const T& vector<T>::back() const
+    {
+        return (*this)[size() - 1];
     }
 }
 
