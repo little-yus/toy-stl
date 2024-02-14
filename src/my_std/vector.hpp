@@ -10,6 +10,12 @@ namespace my
     class vector
     {
     public:
+        using value_type = T;
+        using reference = T&;
+        using const_reference = const T&;
+        
+        using size_type = std::size_t;
+
         vector();
         vector(std::size_t size);
         vector(std::size_t size, const T& value);
