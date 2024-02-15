@@ -32,6 +32,7 @@ namespace my
 
         bool empty();
         std::size_t size() const;
+        std::size_t capacity() const;
 
         // Accessors
         T& operator[] (std::size_t index);
@@ -168,6 +169,12 @@ namespace my
     }
 
     template <typename T>
+    std::size_t vector<T>::capacity() const
+    {
+        return capacity_;
+    }
+
+    template <typename T>
     T& vector<T>::operator[] (std::size_t index)
     {
         return data_[index];
@@ -238,7 +245,8 @@ namespace my
     template <typename T>
     void vector<T>::pop_back()
     {
-
+        size_ -= 1;
+        data_[size_].~T();
     }
 }
 

@@ -36,6 +36,52 @@ TEST_CASE("Constructor from size") {
     }
 }
 
+TEST_CASE("Constructor from size and value") {
+    SUBCASE("Zero size") {
+        my::vector<int> vec(0, 10);
+    
+        CHECK(vec.size() == 0);
+    }
+    
+    SUBCASE("Nonzero size") {
+        my::vector<int> vec(123, 10);
+    
+        CHECK(vec.size() == 123);
+    }
+
+    SUBCASE("Nonzero initialized elements") {
+        const std::size_t size = 10;
+        const int value = 123;
+
+        my::vector<int> vec(size, value);
+
+        bool all_elements_are_initialized = true;
+        for (int i = 0; i < size; i += 1) {
+            if (vec[i] != value) {
+                all_elements_are_initialized = false;
+                break;
+            }
+        }
+    
+        CHECK(all_elements_are_initialized);
+    }
+}
+
+TEST_CASE("Copy constructor") {
+    my::vector<int> vec_a(3);
+    vec_a[0] = 111;
+    vec_a[1] = 222;
+    vec_a[2] = 333;
+
+    my::vector<int> vec_b(vec_a);
+
+    CHECK(vec_b.size() == vec_a.size());
+    
+    CHECK(vec_b[0] == 111);
+    CHECK(vec_b[1] == 222);
+    CHECK(vec_b[2] == 333);
+}
+
 TEST_CASE("Move constructor") {
     SUBCASE("Primitive type") {
         my::vector<int> vec_a(3);
@@ -76,50 +122,6 @@ TEST_CASE("Move constructor") {
         CHECK(vec_b[0].value == 111);
         CHECK(vec_b[1].value == 222);
         CHECK(vec_b[2].value == 333);
-    }
-}
-
-TEST_CASE("Copy constructor") {
-    my::vector<int> vec_a(3);
-    vec_a[0] = 111;
-    vec_a[1] = 222;
-    vec_a[2] = 333;
-
-    my::vector<int> vec_b(vec_a);
-    
-    CHECK(vec_b[0] == 111);
-    CHECK(vec_b[1] == 222);
-    CHECK(vec_b[2] == 333);
-}
-
-TEST_CASE("Constructor from size and value") {
-    SUBCASE("Zero size") {
-        my::vector<int> vec(0, 10);
-    
-        CHECK(vec.size() == 0);
-    }
-    
-    SUBCASE("Nonzero size") {
-        my::vector<int> vec(123, 10);
-    
-        CHECK(vec.size() == 123);
-    }
-
-    SUBCASE("Nonzero initialized elements") {
-        const std::size_t size = 10;
-        const int value = 123;
-
-        my::vector<int> vec(size, value);
-
-        bool all_elements_are_initialized = true;
-        for (int i = 0; i < size; i += 1) {
-            if (vec[i] != value) {
-                all_elements_are_initialized = false;
-                break;
-            }
-        }
-    
-        CHECK(all_elements_are_initialized);
     }
 }
 
@@ -249,4 +251,11 @@ TEST_CASE("Back function") {
 
         CHECK(vec[size - 1] == 123);
     }
+}
+
+TEST_CASE("pop_back") {
+    my::vector<int> vec(10);
+    vec.pop_back();
+
+    CHECK(vec.size() == 9);
 }
