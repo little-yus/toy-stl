@@ -52,6 +52,11 @@ namespace my
         void push_back(T&& value);
         void pop_back();
 
+        void clear();
+        void resize(std::size_t new_size);
+        void reserve(std::size_t new_capacity);
+        void shrink_to_fit();
+
     private:
         bool is_memory_filled() const;
         void grow();
@@ -262,6 +267,38 @@ namespace my
         data_[size_].~T();
     }
 
+    template <typename T>
+    void vector<T>::clear()
+    {
+        T* begin = data_;
+        T* end = data_ + size_;
+
+        for (T* ptr = begin; ptr != end; ptr += 1) {
+            ptr->~T();
+        }
+
+        size_ = 0;
+    }
+
+    template <typename T>
+    void vector<T>::resize(std::size_t new_size)
+    {
+        
+    }
+
+    template <typename T>
+    void vector<T>::reserve(std::size_t new_capacity)
+    {
+
+    }
+
+    template <typename T>
+    void vector<T>::shrink_to_fit()
+    {
+
+    }
+
+    // Private member functions
     template <typename T>
     bool vector<T>::is_memory_filled() const
     {

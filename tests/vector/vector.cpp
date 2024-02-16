@@ -292,3 +292,30 @@ TEST_CASE("Adding elements to the back") {
         CHECK(vec.capacity() >= size);
     }
 }
+
+TEST_CASE("Vector clear") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        REQUIRE(vec.size() == 0);
+        REQUIRE(vec.capacity() >= 0);
+
+        vec.clear();
+
+        CHECK(vec.empty());
+        CHECK(vec.capacity() >= 0);
+    }
+
+    SUBCASE("Non-empty vector") {
+        const std::size_t size = 5;
+        my::vector<int> vec(5);
+        REQUIRE(vec.size() == size);
+        REQUIRE(vec.capacity() >= size);
+
+        vec.clear();
+
+        CHECK(vec.empty());
+        // capacity should not be changed on clear
+        // https://stackoverflow.com/questions/18467624/what-does-the-standard-say-about-how-calling-clear-on-a-vector-changes-the-capac/18467916#18467916
+        CHECK(vec.capacity() >= size);
+    }
+}
