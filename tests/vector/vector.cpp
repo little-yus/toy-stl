@@ -334,7 +334,6 @@ TEST_CASE("Vector resize") {
     }
 
     SUBCASE("Resizing down decreases size") {
-        // FIXME: Now you can just reduce vector size and this test passes
         const std::size_t new_size = 3;
         vec.resize(new_size);
         CHECK(vec.size() == new_size);
@@ -347,6 +346,8 @@ TEST_CASE("Vector resize") {
         CHECK(vec.capacity() == capacity_before_resize);
     }
 
+    // TODO: Resizing down destroys elements
+
     SUBCASE("Resizing up inserts default constructed elements") {
         const std::size_t new_size = 10;
         vec.resize(new_size);
@@ -356,4 +357,62 @@ TEST_CASE("Vector resize") {
             CHECK(vec[i] == int{});
         }
     }
+}
+
+TEST_CASE("Vector capacity reserve") {
+    SUBCASE("Reserve cannot reduce capacity") {
+        const std::size_t size = 10;
+        my::vector<int> vec(size);
+        REQUIRE(vec.capacity() >= size);
+
+        const std::size_t capacity_before_reserve = vec.capacity();
+        vec.reserve(capacity_before_reserve - 3);
+
+        CHECK(vec.capacity() == capacity_before_reserve);
+    }
+
+    SUBCASE("Reserve does nothing if requested capacity equals to current capacity") {
+        const std::size_t size = 10;
+        my::vector<int> vec(size);
+        REQUIRE(vec.capacity() >= size);
+
+        const std::size_t capacity_before_reserve = vec.capacity();
+        vec.reserve(capacity_before_reserve);
+
+        CHECK(vec.capacity() == capacity_before_reserve);
+    }
+
+    SUBCASE("Reserve does nothing if requested capacity equals to current capacity") {
+        const std::size_t size = 10;
+        my::vector<int> vec(size);
+        REQUIRE(vec.capacity() >= size);
+
+        const std::size_t capacity_before_reserve = vec.capacity();
+        const std::size_t requested_capacity = capacity_before_reserve + 10;
+        vec.reserve(requested_capacity);
+
+        CHECK(vec.capacity() >= requested_capacity);
+    }
+
+    SUBCASE("Reserving does not change size") {
+        my::vector<int> vec(10);
+        const std::size_t size_before_reserve = vec.size();
+
+        vec.reserve(vec.capacity() + 10);
+
+        CHECK(vec.size() == size_before_reserve);
+    }
+}
+
+TEST_CASE("Vector capacity shrink") {
+    my::vector<int> vec;
+    vec.reserve(10);
+    vec.resize(5);
+    REQUIRE(vec.size() == 5);
+    REQUIRE(vec.capacity() >= 10);
+
+    vec.shrink_to_fit();
+
+    CHECK(vec.size() == 5);
+    CHECK(vec.capacity() == vec.size()); // Not necessary in the standard
 }

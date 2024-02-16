@@ -293,11 +293,15 @@ namespace my
                 }
 
                 // Clear old memory
+                for (std::size_t i = 0; i < size(); i += 1) {
+                    data_[i].~T();
+                }
                 ::operator delete(static_cast<void*>(data_));
                 data_ = new_data;
                 capacity_ = new_capacity;
             }
 
+            // Default construct new elements
             for (int i = size(); i < new_size; i += 1) {
                 new (data_ + i) T();
             }
@@ -313,13 +317,42 @@ namespace my
     template <typename T>
     void vector<T>::reserve(std::size_t new_capacity)
     {
+        if (new_capacity > capacity()) {
+            // Move data to new memory location
+            T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+            for (std::size_t i = 0; i < size(); i += 1) {
+                new (new_data + i) T(std::move(data_[i]));
+            }
 
+            // Clear old memory
+            ::operator delete(static_cast<void*>(data_));
+            for (std::size_t i = 0; i < size(); i += 1) {
+                data_[i].~T();
+            }
+            data_ = new_data;
+            capacity_ = new_capacity;
+        }
     }
 
     template <typename T>
     void vector<T>::shrink_to_fit()
     {
+        if (size() < capacity()) {
+            // Move data to new memory location
+            const std::size_t new_capacity = size();
+            T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+            for (std::size_t i = 0; i < size(); i += 1) {
+                new (new_data + i) T(std::move(data_[i]));
+            }
 
+            // Clear old memory
+            for (std::size_t i = 0; i < size(); i += 1) {
+                data_[i].~T();
+            }
+            ::operator delete(static_cast<void*>(data_));
+            data_ = new_data;
+            capacity_ = new_capacity;
+        }
     }
 
     // Private member functions
@@ -348,6 +381,9 @@ namespace my
         }
 
         // Clear old memory
+        for (std::size_t i = 0; i < size(); i += 1) {
+            data_[i].~T();
+        }
         ::operator delete(static_cast<void*>(data_));
         data_ = new_data;
         capacity_ = new_capacity;
