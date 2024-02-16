@@ -283,7 +283,31 @@ namespace my
     template <typename T>
     void vector<T>::resize(std::size_t new_size)
     {
-        
+        if (new_size > size()) {
+            if (new_size > capacity()) {
+                // Move data to new memory location
+                const std::size_t new_capacity = new_size;
+                T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+                for (std::size_t i = 0; i < size(); i += 1) {
+                    new (new_data + i) T(std::move(data_[i]));
+                }
+
+                // Clear old memory
+                ::operator delete(static_cast<void*>(data_));
+                data_ = new_data;
+                capacity_ = new_capacity;
+            }
+
+            for (int i = size(); i < new_size; i += 1) {
+                new (data_ + i) T();
+            }
+            size_ = new_size;
+        } else if (new_size < size()) {
+            for (int i = new_size; i < size(); i += 1) {
+                data_[i].~T();
+            }
+            size_ = new_size;
+        }
     }
 
     template <typename T>

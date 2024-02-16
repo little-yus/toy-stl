@@ -319,3 +319,41 @@ TEST_CASE("Vector clear") {
         CHECK(vec.capacity() >= size);
     }
 }
+
+TEST_CASE("Vector resize") {
+    const std::size_t initial_size = 5;
+    my::vector<int> vec(initial_size);
+    REQUIRE(vec.size() == initial_size);
+
+    SUBCASE("Resizing to same size does nothing") {
+        // Doesn't really test much
+        // Should check if any construction or moving happens using some custom type instead of int
+        const std::size_t new_size = initial_size;
+        vec.resize(new_size);
+        CHECK(vec.size() == initial_size);
+    }
+
+    SUBCASE("Resizing down decreases size") {
+        // FIXME: Now you can just reduce vector size and this test passes
+        const std::size_t new_size = 3;
+        vec.resize(new_size);
+        CHECK(vec.size() == new_size);
+    }
+
+    SUBCASE("Resizing down does not change capacity") {
+        const std::size_t new_size = 3;
+        const std::size_t capacity_before_resize = vec.capacity();
+        vec.resize(new_size);
+        CHECK(vec.capacity() == capacity_before_resize);
+    }
+
+    SUBCASE("Resizing up inserts default constructed elements") {
+        const std::size_t new_size = 10;
+        vec.resize(new_size);
+
+        REQUIRE(vec.size() == new_size);
+        for (int i = new_size; i < new_size; i += 1) {
+            CHECK(vec[i] == int{});
+        }
+    }
+}
