@@ -353,8 +353,19 @@ TEST_CASE("Vector resize") {
         vec.resize(new_size);
 
         REQUIRE(vec.size() == new_size);
-        for (int i = new_size; i < new_size; i += 1) {
+        for (int i = initial_size; i < new_size; i += 1) {
             CHECK(vec[i] == int{});
+        }
+    }
+
+    SUBCASE("When resizing up you can insert copies of specified value") {
+        const std::size_t new_size = 10;
+        const int new_value = 123;
+        vec.resize(new_size, new_value);
+
+        REQUIRE(vec.size() == new_size);
+        for (int i = initial_size; i < new_size; i += 1) {
+            CHECK(vec[i] == new_value);
         }
     }
 }
