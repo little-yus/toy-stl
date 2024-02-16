@@ -10,16 +10,24 @@ namespace my
     class vector
     {
     public:
+        // Member types
         using value_type = T;
+
         using reference = T&;
         using const_reference = const T&;
+
+        using pointer = T*;
+        using const_pointer = const T*;
         
         using size_type = std::size_t;
+        using difference_type = std::ptrdiff_t;
 
+        // Constructors
         vector();
         vector(std::size_t size);
         vector(std::size_t size, const T& value);
 
+        // Rule of 5
         vector(const vector& other);
         vector& operator= (vector other);
 
@@ -30,11 +38,14 @@ namespace my
 
         void swap(vector& other);
 
+        // Propery access
         bool empty();
         std::size_t size() const;
         std::size_t capacity() const;
+        T* data();
+        const T* data() const;
 
-        // Accessors
+        // Element access
         T& operator[] (std::size_t index);
         const T& operator[] (std::size_t index) const;
 
@@ -47,11 +58,12 @@ namespace my
         T& back();
         const T& back() const;
 
-        // Modifiers
+        // Adding/removing elements
         void push_back(const T& value);
         void push_back(T&& value);
         void pop_back();
 
+        // Size/capacity modification
         void clear();
         void resize(std::size_t new_size);
         void resize(std::size_t new_size, const T& value);
@@ -88,9 +100,6 @@ namespace my
         }
     }
 
-    // Note:
-    // When you use new[] each element is initialized by the default constructor except when the type is a built-in type. 
-    // Built-in types are left unitialized by default.
     template <typename T>
     vector<T>::vector(std::size_t size, const T& value) :
         size_{size},
@@ -181,6 +190,18 @@ namespace my
     std::size_t vector<T>::capacity() const
     {
         return capacity_;
+    }
+
+    template <typename T>
+    T* vector<T>::data()
+    {
+        return data_;
+    }
+
+    template <typename T>
+    const T* vector<T>::data() const
+    {
+        return data_;
     }
 
     template <typename T>
@@ -424,6 +445,5 @@ namespace my
         capacity_ = new_capacity;
     }
 }
-
 
 #endif /* VECTOR_HPP */
