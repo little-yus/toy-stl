@@ -53,6 +53,9 @@ namespace my
         void pop_back();
 
     private:
+        bool is_memory_filled() const;
+        void grow();
+
         std::size_t size_ {0};
         std::size_t capacity_ {0};
         T* data_ {nullptr};
@@ -233,13 +236,23 @@ namespace my
     template <typename T>
     void vector<T>::push_back(const T& value)
     {
-
+        if (is_memory_filled()) {
+            grow();
+        }
+        
+        new (data_ + size_) T(value);
+        size_ += 1;
     }
 
     template <typename T>
     void vector<T>::push_back(T&& value)
     {
-
+        if (is_memory_filled()) {
+            grow();
+        }
+        
+        new (data_ + size_) T(value);
+        size_ += 1;
     }
 
     template <typename T>
@@ -247,6 +260,36 @@ namespace my
     {
         size_ -= 1;
         data_[size_].~T();
+    }
+
+    template <typename T>
+    bool vector<T>::is_memory_filled() const
+    {
+        return size() == capacity();
+    }
+
+    template <typename T>
+    void vector<T>::grow()
+    {
+        // Calculate new capacity
+        constexpr std::size_t growth_factor = 2;
+        std::size_t new_capacity;
+        if (capacity_ == 0) { // if we were to double it would remain 0
+            new_capacity = 1;
+        } else {
+            new_capacity = capacity_ * growth_factor;
+        }
+
+        // Move data to new memory location
+        T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+        for (std::size_t i = 0; i < size(); i += 1) {
+            new (new_data + i) T(std::move(data_[i]));
+        }
+
+        // Clear old memory
+        ::operator delete(static_cast<void*>(data_));
+        data_ = new_data;
+        capacity_ = new_capacity;
     }
 }
 

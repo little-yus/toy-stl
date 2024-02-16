@@ -259,3 +259,36 @@ TEST_CASE("pop_back") {
 
     CHECK(vec.size() == 9);
 }
+
+TEST_CASE("Adding elements to the back") {
+    SUBCASE("Adding element increases size") {
+        const std::size_t size = 5;
+        my::vector<int> vec(size);
+        vec.push_back(123);
+        
+        CHECK(vec.size() == size + 1);
+        CHECK(vec.capacity() >= size + 1);
+    }
+
+    SUBCASE("Element can be accessed after addition") {
+        const std::size_t size = 5;
+        my::vector<int> vec(size);
+
+        vec.push_back(123);
+
+        CHECK(vec.back() == 123);
+    }
+
+    SUBCASE("Adding then removing element preserves previous size") {
+        const std::size_t size = 5;
+        my::vector<int> vec(size);
+        REQUIRE(vec.size() == size);
+        REQUIRE(vec.capacity() >= size);
+
+        vec.push_back(123);
+        vec.pop_back();
+        
+        CHECK(vec.size() == size);
+        CHECK(vec.capacity() >= size);
+    }
+}
