@@ -62,6 +62,8 @@ namespace my
         void push_back(const T& value);
         void push_back(T&& value);
         void pop_back();
+        template <typename ... Args>
+        T& emplace_back(Args&& ... args);
 
         // Size/capacity modification
         void clear();
@@ -287,6 +289,20 @@ namespace my
     {
         size_ -= 1;
         data_[size_].~T();
+    }
+
+    template <typename T>
+    template <typename ... Args>
+    T& vector<T>::emplace_back(Args&& ... args)
+    {
+        if (is_memory_filled()) {
+            grow();
+        }
+        
+        new (data_ + size_) T(std::forward<Args>(args) ...);
+        size_ += 1;
+
+        return back();
     }
 
     template <typename T>

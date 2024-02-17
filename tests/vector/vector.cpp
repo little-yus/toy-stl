@@ -293,6 +293,26 @@ TEST_CASE("Adding elements to the back") {
     }
 }
 
+TEST_CASE("Constructing new element in-place at the end") {
+    SUBCASE("Adding element increases size") {
+        const std::size_t size = 5;
+        my::vector<int> vec(size);
+        vec.emplace_back(123);
+        
+        CHECK(vec.size() == size + 1);
+        CHECK(vec.capacity() >= size + 1);
+    }
+
+    SUBCASE("Element can be accessed after addition") {
+        const std::size_t size = 5;
+        my::vector<int> vec(size);
+
+        vec.emplace_back(123);
+
+        CHECK(vec.back() == 123);
+    }
+}
+
 TEST_CASE("Vector clear") {
     SUBCASE("Empty vector") {
         my::vector<int> vec;
