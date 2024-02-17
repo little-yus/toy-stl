@@ -447,3 +447,15 @@ TEST_CASE("Vector capacity shrink") {
     CHECK(vec.size() == 5);
     CHECK(vec.capacity() == vec.size()); // Not necessary in the standard
 }
+
+TEST_CASE("Forward iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    std::size_t i = 0;
+    for (auto it = vec.begin(); it != vec.end(); ++it, ++i) {
+        CHECK(*it == vec[i]);
+    }
+}

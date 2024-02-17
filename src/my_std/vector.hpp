@@ -7,6 +7,66 @@
 namespace my
 {
     template <typename T>
+    class vector_iterator
+    {
+    public:
+        explicit vector_iterator(T* ptr);
+
+        bool operator== (const vector_iterator<T>& other) const;
+
+        vector_iterator operator++ ();
+        vector_iterator operator++ (int);
+
+        T& operator* ();
+        const T& operator* () const;
+    private:
+        T* ptr;
+    };
+
+    template <typename T>
+    vector_iterator<T>::vector_iterator(T* ptr) : ptr(ptr)
+    {
+
+    }
+
+    template <typename T>
+    bool vector_iterator<T>::operator== (const vector_iterator<T>& other) const
+    {
+        return ptr == other.ptr;
+    }
+
+    template <typename T>
+    vector_iterator<T> vector_iterator<T>::operator++()
+    {
+        ++ptr;
+        return *this;
+    }
+
+    template <typename T>
+    vector_iterator<T> vector_iterator<T>::operator++(int)
+    {
+        const auto previous = *this;
+        ++ptr;
+        return previous;
+    }
+
+    template <typename T>
+    T& vector_iterator<T>::operator* ()
+    {
+        return *ptr;
+    }
+
+    template <typename T>
+    const T& vector_iterator<T>::operator* () const
+    {
+        return *ptr;
+    }
+
+
+
+
+
+    template <typename T>
     class vector
     {
     public:
@@ -71,6 +131,10 @@ namespace my
         void resize(std::size_t new_size, const T& value);
         void reserve(std::size_t new_capacity);
         void shrink_to_fit();
+
+        // Iterators
+        vector_iterator<T> begin();
+        vector_iterator<T> end();
 
     private:
         bool is_memory_filled() const;
@@ -424,6 +488,26 @@ namespace my
             ::operator delete(static_cast<void*>(data_));
             data_ = new_data;
             capacity_ = new_capacity;
+        }
+    }
+
+    template <typename T>
+    vector_iterator<T> vector<T>::begin()
+    {
+        if (size() == 0) {
+            return vector_iterator<T>(nullptr);
+        } else {
+            return vector_iterator<T>(data());
+        }
+    }
+
+    template <typename T>
+    vector_iterator<T> vector<T>::end()
+    {
+        if (size() == 0) {
+            return vector_iterator<T>(nullptr);
+        } else {
+            return vector_iterator<T>(data() + size());
         }
     }
 
