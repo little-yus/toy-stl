@@ -1,6 +1,8 @@
 #include "doctest/doctest.h"
 #include "my_std/vector.hpp"
 
+#include <iterator>
+
 TEST_CASE("Default constructor") {
     my::vector<int> vec;
     
@@ -453,6 +455,9 @@ TEST_CASE("Forward iteration") {
     vec.push_back(111);
     vec.push_back(222);
     vec.push_back(333);
+
+    REQUIRE(std::forward_iterator<decltype(vec.begin())>);
+    REQUIRE(std::sentinel_for<decltype(vec.end()), decltype(vec.begin())>);
 
     std::size_t i = 0;
     for (auto it = vec.begin(); it != vec.end(); ++it, ++i) {

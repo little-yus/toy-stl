@@ -10,17 +10,26 @@ namespace my
     class vector_iterator
     {
     public:
+        using value_type = T;
+
+        using reference = T&;
+        using const_reference = const T&;
+        using rvalue_reference = T&&;
+
+        using difference_type = std::ptrdiff_t;
+
+        vector_iterator() = default;
         explicit vector_iterator(T* ptr);
 
         bool operator== (const vector_iterator<T>& other) const;
 
-        vector_iterator operator++ ();
+        vector_iterator& operator++ ();
         vector_iterator operator++ (int);
 
         T& operator* ();
-        const T& operator* () const;
+        T& operator* () const;
     private:
-        T* ptr;
+        T* ptr{};
     };
 
     template <typename T>
@@ -36,7 +45,7 @@ namespace my
     }
 
     template <typename T>
-    vector_iterator<T> vector_iterator<T>::operator++()
+    vector_iterator<T>& vector_iterator<T>::operator++()
     {
         ++ptr;
         return *this;
@@ -45,9 +54,9 @@ namespace my
     template <typename T>
     vector_iterator<T> vector_iterator<T>::operator++(int)
     {
-        const auto previous = *this;
+        const auto copy = *this;
         ++ptr;
-        return previous;
+        return copy;
     }
 
     template <typename T>
@@ -57,7 +66,7 @@ namespace my
     }
 
     template <typename T>
-    const T& vector_iterator<T>::operator* () const
+    T& vector_iterator<T>::operator* () const
     {
         return *ptr;
     }
