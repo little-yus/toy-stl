@@ -26,6 +26,9 @@ namespace my
         vector_iterator& operator++ ();
         vector_iterator operator++ (int);
 
+        vector_iterator& operator-- ();
+        vector_iterator operator-- (int);
+
         T& operator* ();
         T& operator* () const;
     private:
@@ -56,6 +59,21 @@ namespace my
     {
         const auto copy = *this;
         ++ptr;
+        return copy;
+    }
+
+    template <typename T>
+    vector_iterator<T>& vector_iterator<T>::operator--()
+    {
+        --ptr;
+        return *this;
+    }
+
+    template <typename T>
+    vector_iterator<T> vector_iterator<T>::operator--(int)
+    {
+        const auto copy = *this;
+        --ptr;
         return copy;
     }
 

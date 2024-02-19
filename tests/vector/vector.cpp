@@ -464,3 +464,30 @@ TEST_CASE("Forward iteration") {
         CHECK(*it == vec[i]);
     }
 }
+
+TEST_CASE("Bidirectional iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::bidirectional_iterator<decltype(vec.begin())>);
+    REQUIRE(std::bidirectional_iterator<decltype(vec.end())>);
+
+    // Iterate forward
+    std::size_t i = 0;
+    auto it = vec.begin();
+    for (; it != vec.end(); ++it, ++i) {
+        CHECK(*it == vec[i]);
+    }
+
+    // Iterate backwards
+    while (true) {
+        CHECK(vec[i] == *it);
+        if (it == vec.begin()) {
+            break;
+        }
+        --it;
+        --i;
+    }
+}
