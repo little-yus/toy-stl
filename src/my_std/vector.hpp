@@ -33,11 +33,14 @@ namespace my
         vector_iterator operator-- (int);
 
         vector_iterator& operator+= (std::ptrdiff_t n);
-        friend vector_iterator operator+ (vector_iterator i, std::ptrdiff_t n);
-        friend vector_iterator operator+ (std::ptrdiff_t n, vector_iterator i);
+        template<typename U>
+        friend vector_iterator<U> operator+ (vector_iterator<U> i, std::ptrdiff_t n);
+        template<typename U>
+        friend vector_iterator<U> operator+ (std::ptrdiff_t n, vector_iterator<U> i);
 
         vector_iterator& operator-= (std::ptrdiff_t n);
-        friend std::ptrdiff_t operator- (const vector_iterator& a, const vector_iterator& b);
+        template<typename U>
+        friend std::ptrdiff_t operator- (const vector_iterator<U>& a, const vector_iterator<U>& b);
 
         T& operator[] (std::ptrdiff_t n) const;
         T& operator* () const;
@@ -181,11 +184,14 @@ namespace my
         reverse_iterator operator-- (int);
 
         reverse_iterator& operator+= (std::ptrdiff_t n);
-        friend reverse_iterator operator+ (reverse_iterator i, std::ptrdiff_t n);
-        friend reverse_iterator operator+ (std::ptrdiff_t n, reverse_iterator i);
+        template <typename U>
+        friend reverse_iterator<U> operator+ (reverse_iterator<U> i, std::ptrdiff_t n);
+        template <typename U>
+        friend reverse_iterator<U> operator+ (std::ptrdiff_t n, reverse_iterator<U> i);
 
         reverse_iterator& operator-= (std::ptrdiff_t n);
-        friend std::ptrdiff_t operator- (const reverse_iterator& a, const reverse_iterator& b);
+        template <typename U>
+        friend std::ptrdiff_t operator- (const reverse_iterator<U>& a, const reverse_iterator<U>& b);
 
         reference operator[] (std::ptrdiff_t n) const;
         reference operator* () const;
@@ -252,14 +258,14 @@ namespace my
     template <typename I>
     reverse_iterator<I> operator+ (reverse_iterator<I> i, std::ptrdiff_t n)
     {
-        i -= n;
+        i += n; // logic is already handled by implementation of +=
         return i;
     }
 
     template <typename I>
     reverse_iterator<I> operator+ (std::ptrdiff_t n, reverse_iterator<I> i)
     {
-        i -= n;
+        i += n;
         return i;
     }
 
@@ -273,7 +279,7 @@ namespace my
     template <typename I>
     reverse_iterator<I> operator- (reverse_iterator<I> i, std::ptrdiff_t n)
     {
-        i += n;
+        i -= n; // logic is already handled by implementation of +=
         return i;
     }
 

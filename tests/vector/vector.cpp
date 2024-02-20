@@ -563,6 +563,37 @@ TEST_CASE("Iterators order") {
     }
 }
 
+TEST_CASE("Iterators distance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.end() - vec.begin() == 0);
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.end() - vec.begin() == vec.size());
+    }
+}
+
+TEST_CASE("Iterators advance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.begin() + 0 == vec.end());
+        CHECK(0 + vec.begin() == vec.end());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.begin() + vec.size() == vec.end());
+        CHECK(vec.size() + vec.begin() == vec.end());
+    }
+
+    SUBCASE("Negative advance") {
+        my::vector<int> vec(10);
+        CHECK(vec.end() - vec.size() == vec.begin());
+    }
+}
+
 TEST_CASE("Range based for loop") {
     my::vector<int> vec;
     vec.push_back(111);
@@ -655,5 +686,36 @@ TEST_CASE("Reverse iterators order") {
     SUBCASE("Non-empty vector") {
         my::vector<int> vec(10);
         CHECK(vec.rbegin() < vec.rend());
+    }
+}
+
+TEST_CASE("Reverse iterators distance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.rend() - vec.rbegin() == 0);
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.rend() - vec.rbegin() == vec.size());
+    }
+}
+
+TEST_CASE("Reverse iterators advance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.rbegin() + 0 == vec.rend());
+        CHECK(0 + vec.rbegin() == vec.rend());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.rbegin() + vec.size() == vec.rend());
+        CHECK(vec.size() + vec.rbegin() == vec.rend());
+    }
+
+    SUBCASE("Negative advance") {
+        my::vector<int> vec(10);
+        CHECK(vec.rend() - vec.size() == vec.rbegin());
     }
 }
