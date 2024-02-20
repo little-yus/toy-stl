@@ -70,6 +70,49 @@ TEST_CASE("Constructor from size and value") {
     }
 }
 
+TEST_CASE("Constructing from iterator pair") {
+    SUBCASE("Copying empty vector") {
+        my::vector<int> vec_a;
+        REQUIRE(vec_a.empty());
+
+        my::vector<int> vec_b(vec_a.begin(), vec_a.end());
+
+        CHECK(vec_b.empty());
+    }
+
+    SUBCASE("Copying vector") {
+        my::vector<int> vec_a(3);
+        vec_a[0] = 111;
+        vec_a[1] = 222;
+        vec_a[2] = 333;
+
+        my::vector<int> vec_b(vec_a.begin(), vec_a.end());
+
+        CHECK(vec_a.size() == vec_b.size());
+        for (std::size_t i = 0; i < vec_a.size(); i += 1) {
+            CHECK(vec_a[i] == vec_b[i]);
+        }
+    }
+
+    SUBCASE("Copying vector in reverse") {
+        my::vector<int> vec_a(3);
+        vec_a[0] = 111;
+        vec_a[1] = 222;
+        vec_a[2] = 333;
+
+        my::vector<int> vec_b(vec_a.rbegin(), vec_a.rend());
+
+        CHECK(vec_a.size() == vec_b.size());
+        for (
+            std::size_t i_a = 0, i_b = vec_b.size() - 1;
+            i_a < vec_a.size();
+            i_a++, i_b--
+        ) {
+            CHECK(vec_a[i_a] == vec_b[i_b]);
+        }
+    }
+}
+
 TEST_CASE("Copy constructor") {
     my::vector<int> vec_a(3);
     vec_a[0] = 111;
@@ -508,6 +551,18 @@ TEST_CASE("Random access") {
     }
 }
 
+TEST_CASE("Iterators order") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.begin() == vec.end());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.begin() < vec.end());
+    }
+}
+
 TEST_CASE("Range based for loop") {
     my::vector<int> vec;
     vec.push_back(111);
@@ -588,5 +643,17 @@ TEST_CASE("Reverse range based for loop") {
     for (const auto num : vec | std::views::reverse) {
         CHECK(num == vec[i]);
         i -= 1;
+    }
+}
+
+TEST_CASE("Reverse iterators order") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.rbegin() == vec.rend());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.rbegin() < vec.rend());
     }
 }

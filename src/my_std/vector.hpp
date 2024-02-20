@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <new>
+#include <cassert>
 
 namespace my
 {
@@ -208,8 +209,7 @@ namespace my
     template<typename I>
     std::strong_ordering reverse_iterator<I>::operator<=> (const reverse_iterator<I>& other) const
     {
-        throw "Not implemented";
-        return iter <=> other.iter;
+        return other.iter <=> iter;
     }
 
     template <typename I>
@@ -327,6 +327,8 @@ namespace my
         vector();
         vector(std::size_t size);
         vector(std::size_t size, const T& value);
+        template <std::input_iterator I>
+        vector(I begin, I end);
 
         // Rule of 5
         vector(const vector& other);
@@ -403,7 +405,7 @@ namespace my
         data_{static_cast<T*>(::operator new (sizeof(T) * size))}
     {
         T* begin = data_;
-        T* end = data_ + size;
+        T* end = data_ + size_;
 
         for (T* ptr = begin; ptr != end; ptr += 1) {
             new (ptr) T();
@@ -417,10 +419,19 @@ namespace my
         data_{static_cast<T*>(::operator new (sizeof(T) * size))}
     {
         T* begin = data_;
-        T* end = data_ + size;
+        T* end = data_ + size_;
 
         for (T* ptr = begin; ptr != end; ptr += 1) {
             new (ptr) T(value);
+        }
+    }
+
+    template <typename T>
+    template <std::input_iterator I>
+    vector<T>::vector(I first, I last) : vector()
+    {
+        for (auto i = first; i != last; ++i) {
+            push_back(*i);
         }
     }
 
