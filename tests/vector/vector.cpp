@@ -2,6 +2,7 @@
 #include "my_std/vector.hpp"
 
 #include <iterator>
+#include <ranges>
 
 TEST_CASE("Default constructor") {
     my::vector<int> vec;
@@ -517,5 +518,75 @@ TEST_CASE("Range based for loop") {
     for (const auto num : vec) {
         CHECK(num == vec[i]);
         i += 1;
+    }
+}
+
+// Reverse iterator
+TEST_CASE("Reverse forward iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    REQUIRE(std::forward_iterator<decltype(vec.rbegin())>);
+    REQUIRE(std::sentinel_for<decltype(vec.rend()), decltype(vec.rbegin())>);
+
+    std::size_t i = vec.size() - 1;
+    for (auto it = vec.rbegin(); it != vec.rend(); ++it, --i) {
+        CHECK(*it == vec[i]);
+    }
+}
+
+TEST_CASE("Reverse bidirectional iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::bidirectional_iterator<decltype(vec.rbegin())>);
+    REQUIRE(std::bidirectional_iterator<decltype(vec.rend())>);
+
+    // Iterate forward
+    std::size_t i = vec.size() - 1;
+    auto it = vec.rbegin();
+    for (; it != vec.rend(); ++it, --i) {
+        CHECK(*it == vec[i]);
+    }
+
+    // Iterate backwards
+    while (true) {
+        CHECK(vec[i] == *it);
+        if (it == vec.rbegin()) {
+            break;
+        }
+        --it;
+        ++i;
+    }
+}
+
+TEST_CASE("Reverse iterator random access") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::random_access_iterator <decltype(vec.rbegin())>);
+    REQUIRE(std::random_access_iterator <decltype(vec.rend())>);
+
+    for (std::size_t i = 0; i < vec.size(); i += 1) {
+        CHECK(vec.rbegin()[vec.size() - 1 - i] == vec[i]);
+    }
+}
+
+TEST_CASE("Reverse range based for loop") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    std::size_t i = vec.size() - 1;
+    for (const auto num : vec | std::views::reverse) {
+        CHECK(num == vec[i]);
+        i -= 1;
     }
 }

@@ -152,6 +152,159 @@ namespace my
         return *ptr;
     }
 
+
+    template <typename I>
+    class reverse_iterator
+    {
+    public:
+        using iterator_type = I;
+        using iterator_concept = std::random_access_iterator_tag; // If Iter models std::random_access_iterator, this is std::random_access_iterator_tag. Otherwise, this is std::bidirectional_iterator_tag
+        using iterator_category = std::iterator_traits<I>::iterator_category; //If std::iterator_traits<Iter>::iterator_category models std::derived_from<std::random_access_iterator_tag>, this is std::random_access_iterator_tag. Otherwise, this is std::iterator_traits<Iter>::iterator_category
+        
+        using value_type = std::iter_value_t<I>;
+        using reference = std::iter_reference_t<I>;
+
+        using difference_type = std::iter_difference_t<I>;
+        using pointer = std::iterator_traits<I>::pointer;
+
+        reverse_iterator() = default;
+        explicit reverse_iterator(I iter);
+
+        bool operator== (const reverse_iterator& other) const;
+        std::strong_ordering operator<=> (const reverse_iterator& other) const;
+
+        reverse_iterator& operator++ ();
+        reverse_iterator operator++ (int);
+
+        reverse_iterator& operator-- ();
+        reverse_iterator operator-- (int);
+
+        reverse_iterator& operator+= (std::ptrdiff_t n);
+        friend reverse_iterator operator+ (reverse_iterator i, std::ptrdiff_t n);
+        friend reverse_iterator operator+ (std::ptrdiff_t n, reverse_iterator i);
+
+        reverse_iterator& operator-= (std::ptrdiff_t n);
+        friend std::ptrdiff_t operator- (const reverse_iterator& a, const reverse_iterator& b);
+
+        reference operator[] (std::ptrdiff_t n) const;
+        
+        reference operator* ();
+        reference operator* () const;
+    private:
+        I iter{};
+    };
+
+    template <typename I>
+    reverse_iterator<I>::reverse_iterator(I iter) : iter(iter)
+    {
+
+    }
+
+    template <typename I>
+    bool reverse_iterator<I>::operator== (const reverse_iterator<I>& other) const
+    {
+        return iter == other.iter;
+    }
+
+    template<typename I>
+    std::strong_ordering reverse_iterator<I>::operator<=> (const reverse_iterator<I>& other) const
+    {
+        throw "Not implemented";
+        return iter <=> other.iter;
+    }
+
+    template <typename I>
+    reverse_iterator<I>& reverse_iterator<I>::operator++ ()
+    {
+        --iter;
+        return *this;
+    }
+
+    template <typename I>
+    reverse_iterator<I> reverse_iterator<I>::operator++ (int)
+    {
+        const auto copy = *this;
+        --iter;
+        return copy;
+    }
+
+    template <typename I>
+    reverse_iterator<I>& reverse_iterator<I>::operator-- ()
+    {
+        ++iter;
+        return *this;
+    }
+
+    template <typename I>
+    reverse_iterator<I> reverse_iterator<I>::operator-- (int)
+    {
+        const auto copy = *this;
+        ++iter;
+        return copy;
+    }
+
+    template<typename I>
+    reverse_iterator<I>& reverse_iterator<I>::operator+= (std::ptrdiff_t n)
+    {
+        iter -= n;
+        return *this;
+    }
+
+    template <typename I>
+    reverse_iterator<I> operator+ (reverse_iterator<I> i, std::ptrdiff_t n)
+    {
+        i -= n;
+        return i;
+    }
+
+    template <typename I>
+    reverse_iterator<I> operator+ (std::ptrdiff_t n, reverse_iterator<I> i)
+    {
+        i -= n;
+        return i;
+    }
+
+    template<typename I>
+    reverse_iterator<I>& reverse_iterator<I>::operator-= (std::ptrdiff_t n)
+    {
+        iter += n;
+        return *this;
+    }
+
+    template <typename I>
+    reverse_iterator<I> operator- (reverse_iterator<I> i, std::ptrdiff_t n)
+    {
+        i += n;
+        return i;
+    }
+
+    template <typename I>
+    std::ptrdiff_t operator- (const reverse_iterator<I>& a, const reverse_iterator<I>& b)
+    {
+        return b.iter - a.iter;
+    }
+
+    template<typename I>
+    reverse_iterator<I>::reference reverse_iterator<I>::operator[] (std::ptrdiff_t n) const
+    {
+        auto i = std::prev(iter);
+        std::advance(i, -n);
+        return *i;
+    }
+
+    template <typename I>
+    reverse_iterator<I>::reference reverse_iterator<I>::operator* ()
+    {
+        return *std::prev(iter);
+    }
+
+    template <typename I>
+    reverse_iterator<I>::reference reverse_iterator<I>::operator* () const
+    {
+        return *std::prev(iter);
+    }
+
+
     template <typename T>
     class vector
     {
@@ -169,6 +322,7 @@ namespace my
         using difference_type = std::ptrdiff_t;
 
         using iterator = vector_iterator<T>;
+        using reverse_iterator = reverse_iterator<iterator>;
 
         // Constructors
         vector();
@@ -223,6 +377,9 @@ namespace my
         // Iterators
         iterator begin();
         iterator end();
+
+        reverse_iterator rbegin();
+        reverse_iterator rend();
 
     private:
         bool is_memory_filled() const;
@@ -597,6 +754,18 @@ namespace my
         } else {
             return vector_iterator<T>(data() + size());
         }
+    }
+
+    template <typename T>
+    vector<T>::reverse_iterator vector<T>::rbegin()
+    {
+        return reverse_iterator(end());
+    }
+
+    template <typename T>
+    vector<T>::reverse_iterator vector<T>::rend()
+    {
+        return reverse_iterator(begin());
     }
 
     // Private member functions
