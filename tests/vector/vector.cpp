@@ -113,6 +113,28 @@ TEST_CASE("Constructing from iterator pair") {
     }
 }
 
+TEST_CASE("Constructing from initializer_list") {
+    SUBCASE("Explicit initializer_list") {
+        std::initializer_list<int> init_list { 1, 2, 3 };
+
+        my::vector<int> vec(init_list);
+
+        CHECK(vec.size() == init_list.size());
+        CHECK(vec[0] == 1);
+        CHECK(vec[1] == 2);
+        CHECK(vec[2] == 3);
+    }
+
+    SUBCASE("Implicit initializer_list") {
+        my::vector<int> vec = { 1, 2, 3 };
+
+        CHECK(vec.size() == 3);
+        CHECK(vec[0] == 1);
+        CHECK(vec[1] == 2);
+        CHECK(vec[2] == 3);
+    }
+}
+
 TEST_CASE("Copy constructor") {
     my::vector<int> vec_a(3);
     vec_a[0] = 111;

@@ -335,6 +335,7 @@ namespace my
         vector(std::size_t size, const T& value);
         template <std::input_iterator I>
         vector(I begin, I end);
+        vector(std::initializer_list<T> init_list);
 
         // Rule of 5
         vector(const vector& other);
@@ -439,6 +440,13 @@ namespace my
         for (auto i = first; i != last; ++i) {
             push_back(*i);
         }
+    }
+
+    template <typename T>
+    vector<T>::vector(std::initializer_list<T> init_list) :
+        vector(std::begin(init_list), std::end(init_list))
+    {
+
     }
 
     template <typename T>
