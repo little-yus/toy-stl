@@ -22,6 +22,7 @@ namespace my
         explicit vector_iterator(T* ptr);
 
         bool operator== (const vector_iterator<T>& other) const;
+        std::strong_ordering operator<=> (const vector_iterator<T>& other) const;
 
         vector_iterator& operator++ ();
         vector_iterator operator++ (int);
@@ -29,6 +30,15 @@ namespace my
         vector_iterator& operator-- ();
         vector_iterator operator-- (int);
 
+        vector_iterator& operator+= (std::ptrdiff_t n);
+        friend vector_iterator operator+ (vector_iterator i, std::ptrdiff_t n);
+        friend vector_iterator operator+ (std::ptrdiff_t n, vector_iterator i);
+
+        vector_iterator& operator-= (std::ptrdiff_t n);
+        friend std::ptrdiff_t operator- (const vector_iterator& a, const vector_iterator& b);
+
+        T& operator[] (std::ptrdiff_t n) const;
+        
         T& operator* ();
         T& operator* () const;
     private:
@@ -47,15 +57,21 @@ namespace my
         return ptr == other.ptr;
     }
 
+    template<typename T>
+    std::strong_ordering vector_iterator<T>::operator<=> (const vector_iterator<T>& other) const
+    {
+        return ptr <=> other.ptr;
+    }
+
     template <typename T>
-    vector_iterator<T>& vector_iterator<T>::operator++()
+    vector_iterator<T>& vector_iterator<T>::operator++ ()
     {
         ++ptr;
         return *this;
     }
 
     template <typename T>
-    vector_iterator<T> vector_iterator<T>::operator++(int)
+    vector_iterator<T> vector_iterator<T>::operator++ (int)
     {
         const auto copy = *this;
         ++ptr;
@@ -63,18 +79,65 @@ namespace my
     }
 
     template <typename T>
-    vector_iterator<T>& vector_iterator<T>::operator--()
+    vector_iterator<T>& vector_iterator<T>::operator-- ()
     {
         --ptr;
         return *this;
     }
 
     template <typename T>
-    vector_iterator<T> vector_iterator<T>::operator--(int)
+    vector_iterator<T> vector_iterator<T>::operator-- (int)
     {
         const auto copy = *this;
         --ptr;
         return copy;
+    }
+
+    template<typename T>
+    vector_iterator<T>& vector_iterator<T>::operator+= (std::ptrdiff_t n)
+    {
+        ptr += n;
+        return *this;
+    }
+
+    template <typename T>
+    vector_iterator<T> operator+ (vector_iterator<T> i, std::ptrdiff_t n)
+    {
+        i += n;
+        return i;
+    }
+
+    template <typename T>
+    vector_iterator<T> operator+ (std::ptrdiff_t n, vector_iterator<T> i)
+    {
+        i += n;
+        return i;
+    }
+
+    template<typename T>
+    vector_iterator<T>& vector_iterator<T>::operator-= (std::ptrdiff_t n)
+    {
+        ptr -= n;
+        return *this;
+    }
+
+    template <typename T>
+    vector_iterator<T> operator- (vector_iterator<T> i, std::ptrdiff_t n)
+    {
+        i -= n;
+        return i;
+    }
+
+    template <typename T>
+    std::ptrdiff_t operator- (const vector_iterator<T>& a, const vector_iterator<T>& b)
+    {
+        return a.ptr - b.ptr;
+    }
+
+    template<typename T>
+    T& vector_iterator<T>::operator[] (std::ptrdiff_t n) const
+    {
+        return *(ptr + n);
     }
 
     template <typename T>
@@ -88,10 +151,6 @@ namespace my
     {
         return *ptr;
     }
-
-
-
-
 
     template <typename T>
     class vector
@@ -108,6 +167,8 @@ namespace my
         
         using size_type = std::size_t;
         using difference_type = std::ptrdiff_t;
+
+        using iterator = vector_iterator<T>;
 
         // Constructors
         vector();
@@ -160,8 +221,8 @@ namespace my
         void shrink_to_fit();
 
         // Iterators
-        vector_iterator<T> begin();
-        vector_iterator<T> end();
+        iterator begin();
+        iterator end();
 
     private:
         bool is_memory_filled() const;
@@ -519,7 +580,7 @@ namespace my
     }
 
     template <typename T>
-    vector_iterator<T> vector<T>::begin()
+    vector<T>::iterator vector<T>::begin()
     {
         if (size() == 0) {
             return vector_iterator<T>(nullptr);
@@ -529,7 +590,7 @@ namespace my
     }
 
     template <typename T>
-    vector_iterator<T> vector<T>::end()
+    vector<T>::iterator vector<T>::end()
     {
         if (size() == 0) {
             return vector_iterator<T>(nullptr);

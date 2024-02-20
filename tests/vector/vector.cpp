@@ -450,6 +450,7 @@ TEST_CASE("Vector capacity shrink") {
     CHECK(vec.capacity() == vec.size()); // Not necessary in the standard
 }
 
+// Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;
     vec.push_back(111);
@@ -489,5 +490,32 @@ TEST_CASE("Bidirectional iteration") {
         }
         --it;
         --i;
+    }
+}
+
+TEST_CASE("Random access") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::random_access_iterator <decltype(vec.begin())>);
+    REQUIRE(std::random_access_iterator <decltype(vec.end())>);
+
+    for (std::size_t i = 0; i < vec.size(); i += 1) {
+        CHECK(vec.begin()[i] == vec[i]);
+    }
+}
+
+TEST_CASE("Range based for loop") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    std::size_t i = 0;
+    for (const auto num : vec) {
+        CHECK(num == vec[i]);
+        i += 1;
     }
 }
