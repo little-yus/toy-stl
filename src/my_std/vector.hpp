@@ -13,6 +13,7 @@ namespace my
         using value_type = T;
 
         using reference = T&;
+        using pointer = T*;
         using const_reference = const T&;
         using rvalue_reference = T&&;
 
@@ -38,9 +39,8 @@ namespace my
         friend std::ptrdiff_t operator- (const vector_iterator& a, const vector_iterator& b);
 
         T& operator[] (std::ptrdiff_t n) const;
-        
-        T& operator* ();
         T& operator* () const;
+        T* operator-> () const;
     private:
         T* ptr{};
     };
@@ -141,15 +141,15 @@ namespace my
     }
 
     template <typename T>
-    T& vector_iterator<T>::operator* ()
+    T& vector_iterator<T>::operator* () const
     {
         return *ptr;
     }
 
     template <typename T>
-    T& vector_iterator<T>::operator* () const
+    T* vector_iterator<T>::operator-> () const
     {
-        return *ptr;
+        return ptr;
     }
 
 
@@ -187,9 +187,8 @@ namespace my
         friend std::ptrdiff_t operator- (const reverse_iterator& a, const reverse_iterator& b);
 
         reference operator[] (std::ptrdiff_t n) const;
-        
-        reference operator* ();
         reference operator* () const;
+        pointer operator-> () const;
     private:
         I iter{};
     };
@@ -293,15 +292,15 @@ namespace my
     }
 
     template <typename I>
-    reverse_iterator<I>::reference reverse_iterator<I>::operator* ()
+    reverse_iterator<I>::reference reverse_iterator<I>::operator* () const
     {
         return *std::prev(iter);
     }
 
     template <typename I>
-    reverse_iterator<I>::reference reverse_iterator<I>::operator* () const
+    reverse_iterator<I>::pointer reverse_iterator<I>::operator-> () const
     {
-        return *std::prev(iter);
+        return operator->(std::prev(iter));
     }
 
 
