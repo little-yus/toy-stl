@@ -516,6 +516,65 @@ TEST_CASE("Vector capacity shrink") {
     CHECK(vec.capacity() == vec.size()); // Not necessary in the standard
 }
 
+TEST_CASE("Vector equality") {
+    SUBCASE("Both vectors empty") {
+        my::vector<int> a;
+        my::vector<int> b;
+        REQUIRE(a.empty());
+        REQUIRE(b.empty());
+
+        CHECK(a == b);
+    }
+
+    SUBCASE("Different size") {
+        my::vector<int> a;
+        my::vector<int> b {1, 2, 3};
+        REQUIRE(a.size() != b.size());
+
+        CHECK_FALSE(a == b);
+    }
+
+    SUBCASE("Same size, different elements") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 4, 5, 6 };
+        REQUIRE(a.size() == b.size());
+
+        CHECK_FALSE(a == b);
+    }
+
+    SUBCASE("Same size, same elements") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 1, 2, 3 };
+
+        CHECK(a == b);
+    }
+
+    // Would be nice if these were randomized
+    SUBCASE("Reflexivity") {
+        my::vector<int> a { 1, 2, 3 };
+
+        CHECK(a == a);
+    }
+
+    SUBCASE("Symmetry") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 1, 2, 3 };
+
+        REQUIRE(a == b);
+        CHECK(b == a);
+    }
+
+    SUBCASE("Transitivity") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 1, 2, 3 };
+        my::vector<int> c { 1, 2, 3 };
+
+        REQUIRE(a == b);
+        REQUIRE(b == c);
+        CHECK(a == c);
+    }
+}
+
 // Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;

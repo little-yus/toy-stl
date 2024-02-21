@@ -355,6 +355,9 @@ namespace my
         T* data();
         const T* data() const;
 
+        // Comparison
+        bool operator== (const vector& other) const;
+
         // Element access
         T& operator[] (std::size_t index);
         const T& operator[] (std::size_t index) const;
@@ -537,6 +540,23 @@ namespace my
     const T* vector<T>::data() const
     {
         return data_;
+    }
+
+    // Comparisons
+    template <typename T>
+    bool vector<T>::operator== (const vector& other) const
+    {
+        if (size() != other.size()) {
+            return false;
+        }
+
+        for (size_type i = 0; i < size(); i += 1) {
+            if ((*this)[i] != other[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     template <typename T>
