@@ -357,6 +357,7 @@ namespace my
 
         // Comparison
         bool operator== (const vector& other) const;
+        auto operator<=> (const vector& other) const;
 
         // Element access
         T& operator[] (std::size_t index);
@@ -557,6 +558,47 @@ namespace my
         }
 
         return true;
+    }
+
+    template <typename T>
+    auto vector<T>::operator<=> (const vector& other) const
+    {
+        for (size_type i = 0; i < std::min(size(), other.size()); i += 1) {
+            if (auto comparison_result = (*this)[i] <=> other[i]; comparison_result != 0) {
+                return comparison_result;
+            }
+        }
+
+        using ordering = std::compare_three_way_result_t<T>;
+        return static_cast<ordering>(size() <=> other.size());
+
+
+
+        // if constexpr (std::three_way_comparable<T>) {
+        //     if (empty()) {
+        //         if (other.empty()) {
+        //             return equal;
+        //         } else {
+        //             return less;
+        //         }
+        //     } else {
+        //         if (other.empty()) {
+        //             return greater;
+        //         } else {
+        //             for (size_type i = 0; i < std::min(size(), other.size()); i += 1) {
+        //                 const auto comparison_result = ((*this)[i] <=> other[i]);
+        //                 if (comparison_result == std::strong_ordering::less) {
+        //                     return std::strong_ordering::less;
+        //                 }
+        //                 if (comparison_result == std::strong_ordering::greater) {
+        //                     return std::strong_ordering::greater;
+        //                 }
+        //             }
+
+        //             return std::strong_ordering::equal;
+        //         }
+        //     }
+        // }
     }
 
     template <typename T>

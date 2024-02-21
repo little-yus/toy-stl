@@ -575,6 +575,170 @@ TEST_CASE("Vector equality") {
     }
 }
 
+TEST_CASE("Vector ordering") {
+    SUBCASE("Both vectors are empty") {
+        my::vector<int> a;
+        my::vector<int> b;
+        REQUIRE(a.size() == 0);
+        
+        CHECK_FALSE(a < b);
+        CHECK_FALSE(b > a);
+    }
+
+    SUBCASE("One vector is empty") {
+        my::vector<int> a;
+        my::vector<int> b { 1, 2, 3 };
+        REQUIRE(a.size() == 0);
+        
+        CHECK(a < b);
+        CHECK(b > a);
+    }
+
+    SUBCASE("Same size, common prefix") {
+        my::vector<int> a { 1, 1 };
+        my::vector<int> b { 1, 2 };
+        REQUIRE(a.size() == b.size());
+        
+        CHECK(a < b);
+        CHECK(b > a);
+    }
+
+    SUBCASE("Same size, no common prefix") {
+        my::vector<int> a { 1, 1 };
+        my::vector<int> b { 2, 2 };
+        REQUIRE(a.size() == b.size());
+        
+        CHECK(a < b);
+        CHECK(b > a);
+    }
+
+    SUBCASE("Different size, one is prefix of other") {
+        my::vector<int> a { 1 };
+        my::vector<int> b { 1, 2, 3 };
+        REQUIRE(a.size() != b.size());
+        
+        CHECK(a < b);
+        CHECK(b > a);
+    }
+
+    SUBCASE("Different size, not prefixes of each other") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 2 };
+        REQUIRE(a.size() != b.size());
+        
+        CHECK(a < b);
+        CHECK(b > a);
+    }
+
+    SUBCASE("Antireflexivity") {
+        my::vector<int> a { 1, 2, 3 };
+
+        CHECK_FALSE(a < a);
+    }
+
+    SUBCASE("Assymetry") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 2, 3, 4 };
+
+        REQUIRE(a < b);
+        CHECK_FALSE(b < a);
+    }
+
+    SUBCASE("Transitivity") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 2, 3, 4 };
+        my::vector<int> c { 3, 4, 5 };
+
+        REQUIRE(a < b);
+        REQUIRE(b < c);
+        CHECK(a < c);
+    }
+}
+
+TEST_CASE("Vector spaceship operator") {
+    SUBCASE("Strong order") {
+        my::vector<int> a { 1, 2, 3 };
+        my::vector<int> b { 2, 3, 4 };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::strong_ordering>);
+        CHECK((a <=> b) == std::strong_ordering::less);
+    }
+
+    struct WeaklyOrderedPair
+    {
+        std::weak_ordering operator<=> (const WeaklyOrderedPair& other) const
+        {
+            return std::weak_order(x, other.x);
+        }
+
+        int x;
+        int y;
+    };
+
+    SUBCASE("Weak order less") {
+        my::vector<WeaklyOrderedPair> a { WeaklyOrderedPair { .x = 1, .y = 0 } };
+        my::vector<WeaklyOrderedPair> b { WeaklyOrderedPair { .x = 2, .y = 0 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::weak_ordering>);
+        CHECK((a <=> b) == std::weak_ordering::less);
+    }
+
+    SUBCASE("Weak order equivalent") {
+        my::vector<WeaklyOrderedPair> a { WeaklyOrderedPair { .x = 0, .y = 1 } };
+        my::vector<WeaklyOrderedPair> b { WeaklyOrderedPair { .x = 0, .y = 2 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::weak_ordering>);
+        CHECK((a <=> b) == std::weak_ordering::equivalent);
+    }
+
+    struct PartiallyOrderedPoint
+    {
+        std::partial_ordering operator<=> (const PartiallyOrderedPoint& other) const
+        {
+            if (x == other.x && y == other.y) {
+                return std::partial_ordering::equivalent;
+            }
+
+            if (x < other.x && y < other.y) {
+                return std::partial_ordering::less;
+            }
+
+            if (x > other.x && y > other.y) {
+                return std::partial_ordering::greater;
+            }
+
+            return std::partial_ordering::unordered;
+        }
+
+        int x;
+        int y;
+    };
+
+    SUBCASE("Partial order less") {
+        my::vector<PartiallyOrderedPoint> a { PartiallyOrderedPoint { .x = 1, .y = 1 } };
+        my::vector<PartiallyOrderedPoint> b { PartiallyOrderedPoint { .x = 2, .y = 2 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::partial_ordering>);
+        CHECK((a <=> b) == std::partial_ordering::less);
+    }
+
+    SUBCASE("Partial order equivalent") {
+        my::vector<PartiallyOrderedPoint> a { PartiallyOrderedPoint { .x = 1, .y = 1 } };
+        my::vector<PartiallyOrderedPoint> b { PartiallyOrderedPoint { .x = 1, .y = 1 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::partial_ordering>);
+        CHECK((a <=> b) == std::partial_ordering::equivalent);
+    }
+
+    SUBCASE("Partial order unordered") {
+        my::vector<PartiallyOrderedPoint> a { PartiallyOrderedPoint { .x = 1, .y = 2 } };
+        my::vector<PartiallyOrderedPoint> b { PartiallyOrderedPoint { .x = 2, .y = 1 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::partial_ordering>);
+        CHECK((a <=> b) == std::partial_ordering::unordered);
+    }
+}
+
 // Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;
