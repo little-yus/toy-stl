@@ -666,6 +666,11 @@ TEST_CASE("Vector spaceship operator") {
 
     struct WeaklyOrderedPair
     {
+        bool operator== (const WeaklyOrderedPair& other) const
+        {
+            return x == other.x;
+        }
+
         std::weak_ordering operator<=> (const WeaklyOrderedPair& other) const
         {
             return std::weak_order(x, other.x);
@@ -674,6 +679,7 @@ TEST_CASE("Vector spaceship operator") {
         int x;
         int y;
     };
+    static_assert(std::three_way_comparable<WeaklyOrderedPair, std::weak_ordering>);
 
     SUBCASE("Weak order less") {
         my::vector<WeaklyOrderedPair> a { WeaklyOrderedPair { .x = 1, .y = 0 } };
@@ -693,6 +699,11 @@ TEST_CASE("Vector spaceship operator") {
 
     struct PartiallyOrderedPoint
     {
+        bool operator== (const PartiallyOrderedPoint& other) const
+        {
+            return x == other.x && y == other.y;
+        }
+
         std::partial_ordering operator<=> (const PartiallyOrderedPoint& other) const
         {
             if (x == other.x && y == other.y) {
@@ -713,6 +724,7 @@ TEST_CASE("Vector spaceship operator") {
         int x;
         int y;
     };
+    static_assert(std::three_way_comparable<PartiallyOrderedPoint, std::partial_ordering>);
 
     SUBCASE("Partial order less") {
         my::vector<PartiallyOrderedPoint> a { PartiallyOrderedPoint { .x = 1, .y = 1 } };
@@ -736,6 +748,38 @@ TEST_CASE("Vector spaceship operator") {
 
         REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b), std::partial_ordering>);
         CHECK((a <=> b) == std::partial_ordering::unordered);
+    }
+
+    struct PointWithoutSpaceship
+    {
+        bool operator== (const PointWithoutSpaceship& other) const
+        {
+            return x == other.x;
+        }
+
+        bool operator< (const PointWithoutSpaceship& other) const
+        {
+            return x < other.x;
+        }
+
+        int x;
+    };
+    static_assert(!std::three_way_comparable<PointWithoutSpaceship>);
+
+    SUBCASE("Syntesized order equal") {
+        my::vector<PointWithoutSpaceship> a { PointWithoutSpaceship { .x = 1 } };
+        my::vector<PointWithoutSpaceship> b { PointWithoutSpaceship { .x = 1 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b)>);
+        CHECK((a <=> b) == std::weak_ordering::equivalent);
+    }
+
+    SUBCASE("Syntesized order less") {
+        my::vector<PointWithoutSpaceship> a { PointWithoutSpaceship { .x = 1 } };
+        my::vector<PointWithoutSpaceship> b { PointWithoutSpaceship { .x = 2 } };
+
+        REQUIRE(std::three_way_comparable_with<decltype(a), decltype(b)>);
+        CHECK((a <=> b) == std::weak_ordering::less);
     }
 }
 
