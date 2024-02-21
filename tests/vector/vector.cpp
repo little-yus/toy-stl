@@ -896,6 +896,120 @@ TEST_CASE("Range based for loop") {
     }
 }
 
+// Const iterator
+// Ordinary iterator
+TEST_CASE("Const iterator forward iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    REQUIRE(std::forward_iterator<decltype(vec.cbegin())>);
+    REQUIRE(std::sentinel_for<decltype(vec.cend()), decltype(vec.cbegin())>);
+
+    std::size_t i = 0;
+    for (auto it = vec.cbegin(); it != vec.cend(); ++it, ++i) {
+        CHECK(*it == vec[i]);
+    }
+}
+
+TEST_CASE("Const iterator bidirectional iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::bidirectional_iterator<decltype(vec.cbegin())>);
+    REQUIRE(std::bidirectional_iterator<decltype(vec.cend())>);
+
+    // Iterate forward
+    std::size_t i = 0;
+    auto it = vec.cbegin();
+    for (; it != vec.cend(); ++it, ++i) {
+        CHECK(*it == vec[i]);
+    }
+
+    // Iterate backwards
+    while (true) {
+        CHECK(vec[i] == *it);
+        if (it == vec.cbegin()) {
+            break;
+        }
+        --it;
+        --i;
+    }
+}
+
+TEST_CASE("Const iterator random access") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::random_access_iterator <decltype(vec.cbegin())>);
+    REQUIRE(std::random_access_iterator <decltype(vec.cend())>);
+
+    for (std::size_t i = 0; i < vec.size(); i += 1) {
+        CHECK(vec.cbegin()[i] == vec[i]);
+    }
+}
+
+TEST_CASE("Const iterator iterators order") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.cbegin() == vec.cend());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.cbegin() < vec.cend());
+    }
+}
+
+TEST_CASE("Const iterator iterators distance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.cend() - vec.cbegin() == 0);
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.cend() - vec.cbegin() == vec.size());
+    }
+}
+
+TEST_CASE("Const iterator iterators advance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.cbegin() + 0 == vec.cend());
+        CHECK(0 + vec.cbegin() == vec.cend());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.cbegin() + vec.size() == vec.cend());
+        CHECK(vec.size() + vec.cbegin() == vec.cend());
+    }
+
+    SUBCASE("Negative advance") {
+        my::vector<int> vec(10);
+        CHECK(vec.cend() - vec.size() == vec.cbegin());
+    }
+}
+
+TEST_CASE("Const iterator range based for loop") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    std::size_t i = 0;
+    for (const auto& num : vec) {
+        CHECK(num == vec[i]);
+        i += 1;
+    }
+}
+
 // Reverse iterator
 TEST_CASE("Reverse forward iteration") {
     my::vector<int> vec;
@@ -1006,5 +1120,118 @@ TEST_CASE("Reverse iterators advance") {
     SUBCASE("Negative advance") {
         my::vector<int> vec(10);
         CHECK(vec.rend() - vec.size() == vec.rbegin());
+    }
+}
+
+// Const reverse iterator
+TEST_CASE("Const reverse iterator forward iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    REQUIRE(std::forward_iterator<decltype(vec.crbegin())>);
+    REQUIRE(std::sentinel_for<decltype(vec.crend()), decltype(vec.crbegin())>);
+
+    std::size_t i = vec.size() - 1;
+    for (auto it = vec.crbegin(); it != vec.crend(); ++it, --i) {
+        CHECK(*it == vec[i]);
+    }
+}
+
+TEST_CASE("Const reverse iterator bidirectional iteration") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::bidirectional_iterator<decltype(vec.crbegin())>);
+    REQUIRE(std::bidirectional_iterator<decltype(vec.crend())>);
+
+    // Iterate forward
+    std::size_t i = vec.size() - 1;
+    auto it = vec.crbegin();
+    for (; it != vec.crend(); ++it, --i) {
+        CHECK(*it == vec[i]);
+    }
+
+    // Iterate backwards
+    while (true) {
+        CHECK(vec[i] == *it);
+        if (it == vec.crbegin()) {
+            break;
+        }
+        --it;
+        ++i;
+    }
+}
+
+TEST_CASE("Const reverse iterator random access") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+    
+    REQUIRE(std::random_access_iterator <decltype(vec.crbegin())>);
+    REQUIRE(std::random_access_iterator <decltype(vec.crend())>);
+
+    for (std::size_t i = 0; i < vec.size(); i += 1) {
+        CHECK(vec.crbegin()[vec.size() - 1 - i] == vec[i]);
+    }
+}
+
+TEST_CASE("Const reverse iterator range based for loop") {
+    my::vector<int> vec;
+    vec.push_back(111);
+    vec.push_back(222);
+    vec.push_back(333);
+
+    std::size_t i = vec.size() - 1;
+    for (const auto& num : vec | std::views::reverse) {
+        CHECK(num == vec[i]);
+        i -= 1;
+    }
+}
+
+TEST_CASE("Const reverse iterators order") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.crbegin() == vec.crend());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.crbegin() < vec.crend());
+    }
+}
+
+TEST_CASE("Const reverse iterators distance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.crend() - vec.crbegin() == 0);
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.crend() - vec.crbegin() == vec.size());
+    }
+}
+
+TEST_CASE("Const reverse iterators advance") {
+    SUBCASE("Empty vector") {
+        my::vector<int> vec;
+        CHECK(vec.crbegin() + 0 == vec.crend());
+        CHECK(0 + vec.crbegin() == vec.crend());
+    }
+
+    SUBCASE("Non-empty vector") {
+        my::vector<int> vec(10);
+        CHECK(vec.crbegin() + vec.size() == vec.crend());
+        CHECK(vec.size() + vec.crbegin() == vec.crend());
+    }
+
+    SUBCASE("Negative advance") {
+        my::vector<int> vec(10);
+        CHECK(vec.crend() - vec.size() == vec.crbegin());
     }
 }

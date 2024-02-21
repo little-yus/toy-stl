@@ -11,14 +11,12 @@ namespace my
     class vector_iterator
     {
     public:
+        using iterator_concept = std::contiguous_iterator_tag;
+        using iterator_category = std::random_access_iterator_tag;
         using value_type = T;
-
-        using reference = T&;
-        using pointer = T*;
-        using const_reference = const T&;
-        using rvalue_reference = T&&;
-
         using difference_type = std::ptrdiff_t;
+        using pointer = T*;
+        using reference = T&;
 
         vector_iterator() = default;
         explicit vector_iterator(T* ptr);
@@ -157,6 +155,154 @@ namespace my
     }
 
 
+    template <typename T>
+    class vector_const_iterator
+    {
+    public:
+        using iterator_concept = std::contiguous_iterator_tag;
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = const T*;
+        using reference = const T&;
+
+        vector_const_iterator() = default;
+        explicit vector_const_iterator(T* ptr);
+
+        bool operator== (const vector_const_iterator<T>& other) const;
+        std::strong_ordering operator<=> (const vector_const_iterator<T>& other) const;
+
+        vector_const_iterator& operator++ ();
+        vector_const_iterator operator++ (int);
+
+        vector_const_iterator& operator-- ();
+        vector_const_iterator operator-- (int);
+
+        vector_const_iterator& operator+= (std::ptrdiff_t n);
+        template<typename U>
+        friend vector_const_iterator<U> operator+ (vector_const_iterator<U> i, std::ptrdiff_t n);
+        template<typename U>
+        friend vector_const_iterator<U> operator+ (std::ptrdiff_t n, vector_const_iterator<U> i);
+
+        vector_const_iterator& operator-= (std::ptrdiff_t n);
+        template<typename U>
+        friend std::ptrdiff_t operator- (const vector_const_iterator<U>& a, const vector_const_iterator<U>& b);
+
+        reference operator[] (std::ptrdiff_t n) const;
+        reference operator* () const;
+        pointer operator-> () const;
+    private:
+        T* ptr{};
+    };
+
+    template <typename T>
+    vector_const_iterator<T>::vector_const_iterator(T* ptr) : ptr(ptr)
+    {
+
+    }
+
+    template <typename T>
+    bool vector_const_iterator<T>::operator== (const vector_const_iterator<T>& other) const
+    {
+        return ptr == other.ptr;
+    }
+
+    template<typename T>
+    std::strong_ordering vector_const_iterator<T>::operator<=> (const vector_const_iterator<T>& other) const
+    {
+        return ptr <=> other.ptr;
+    }
+
+    template <typename T>
+    vector_const_iterator<T>& vector_const_iterator<T>::operator++ ()
+    {
+        ++ptr;
+        return *this;
+    }
+
+    template <typename T>
+    vector_const_iterator<T> vector_const_iterator<T>::operator++ (int)
+    {
+        const auto copy = *this;
+        ++ptr;
+        return copy;
+    }
+
+    template <typename T>
+    vector_const_iterator<T>& vector_const_iterator<T>::operator-- ()
+    {
+        --ptr;
+        return *this;
+    }
+
+    template <typename T>
+    vector_const_iterator<T> vector_const_iterator<T>::operator-- (int)
+    {
+        const auto copy = *this;
+        --ptr;
+        return copy;
+    }
+
+    template<typename T>
+    vector_const_iterator<T>& vector_const_iterator<T>::operator+= (std::ptrdiff_t n)
+    {
+        ptr += n;
+        return *this;
+    }
+
+    template <typename T>
+    vector_const_iterator<T> operator+ (vector_const_iterator<T> i, std::ptrdiff_t n)
+    {
+        i += n;
+        return i;
+    }
+
+    template <typename T>
+    vector_const_iterator<T> operator+ (std::ptrdiff_t n, vector_const_iterator<T> i)
+    {
+        i += n;
+        return i;
+    }
+
+    template<typename T>
+    vector_const_iterator<T>& vector_const_iterator<T>::operator-= (std::ptrdiff_t n)
+    {
+        ptr -= n;
+        return *this;
+    }
+
+    template <typename T>
+    vector_const_iterator<T> operator- (vector_const_iterator<T> i, std::ptrdiff_t n)
+    {
+        i -= n;
+        return i;
+    }
+
+    template <typename T>
+    std::ptrdiff_t operator- (const vector_const_iterator<T>& a, const vector_const_iterator<T>& b)
+    {
+        return a.ptr - b.ptr;
+    }
+
+    template<typename T>
+    vector_const_iterator<T>::reference vector_const_iterator<T>::operator[] (std::ptrdiff_t n) const
+    {
+        return *(ptr + n);
+    }
+
+    template <typename T>
+    vector_const_iterator<T>::reference vector_const_iterator<T>::operator* () const
+    {
+        return *ptr;
+    }
+
+    template <typename T>
+    vector_const_iterator<T>::pointer vector_const_iterator<T>::operator-> () const
+    {
+        return ptr;
+    }
+
+
     template <typename I>
     class reverse_iterator
     {
@@ -164,12 +310,10 @@ namespace my
         using iterator_type = I;
         using iterator_concept = std::random_access_iterator_tag; // If Iter models std::random_access_iterator, this is std::random_access_iterator_tag. Otherwise, this is std::bidirectional_iterator_tag
         using iterator_category = std::iterator_traits<I>::iterator_category; //If std::iterator_traits<Iter>::iterator_category models std::derived_from<std::random_access_iterator_tag>, this is std::random_access_iterator_tag. Otherwise, this is std::iterator_traits<Iter>::iterator_category
-        
         using value_type = std::iter_value_t<I>;
-        using reference = std::iter_reference_t<I>;
-
         using difference_type = std::iter_difference_t<I>;
         using pointer = std::iterator_traits<I>::pointer;
+        using reference = std::iter_reference_t<I>;
 
         reverse_iterator() = default;
         explicit reverse_iterator(I iter);
@@ -327,7 +471,10 @@ namespace my
         using difference_type = std::ptrdiff_t;
 
         using iterator = vector_iterator<T>;
-        using reverse_iterator = reverse_iterator<iterator>;
+        using const_iterator = vector_const_iterator<T>;
+
+        using reverse_iterator = my::reverse_iterator<iterator>; // Here we shadow reverse_iterator class template, be careful
+        using const_reverse_iterator = my::reverse_iterator<const_iterator>;
 
         // Constructors
         vector();
@@ -390,8 +537,21 @@ namespace my
         iterator begin();
         iterator end();
 
+        const_iterator begin() const;
+        const_iterator end() const;
+
+        const_iterator cbegin() const;
+        const_iterator cend() const;
+
+        // Reverse iterators
         reverse_iterator rbegin();
         reverse_iterator rend();
+
+        const_reverse_iterator rbegin() const;
+        const_reverse_iterator rend() const;
+
+        const_reverse_iterator crbegin() const;
+        const_reverse_iterator crend() const;
 
     private:
         bool is_memory_filled() const;
@@ -817,21 +977,37 @@ namespace my
     template <typename T>
     vector<T>::iterator vector<T>::begin()
     {
-        if (size() == 0) {
-            return vector_iterator<T>(nullptr);
-        } else {
-            return vector_iterator<T>(data());
-        }
+        return iterator(data());
     }
 
     template <typename T>
     vector<T>::iterator vector<T>::end()
     {
-        if (size() == 0) {
-            return vector_iterator<T>(nullptr);
-        } else {
-            return vector_iterator<T>(data() + size());
-        }
+        return iterator(data() + size());
+    }
+
+    template <typename T>
+    vector<T>::const_iterator vector<T>::begin() const
+    {
+        return const_iterator(data_); // data() will not work because it returns const T*
+    }
+
+    template <typename T>
+    vector<T>::const_iterator vector<T>::end() const
+    {
+        return const_iterator(data_ + size_);
+    }
+
+    template <typename T>
+    vector<T>::const_iterator vector<T>::cbegin() const
+    {
+        return begin();
+    }
+
+    template <typename T>
+    vector<T>::const_iterator vector<T>::cend() const
+    {
+        return end();
     }
 
     template <typename T>
@@ -844,6 +1020,30 @@ namespace my
     vector<T>::reverse_iterator vector<T>::rend()
     {
         return reverse_iterator(begin());
+    }
+
+    template <typename T>
+    vector<T>::const_reverse_iterator vector<T>::rbegin() const
+    {
+        return const_reverse_iterator(end());
+    }
+
+    template <typename T>
+    vector<T>::const_reverse_iterator vector<T>::rend() const
+    {
+        return const_reverse_iterator(begin());
+    }
+
+    template <typename T>
+    vector<T>::const_reverse_iterator vector<T>::crbegin() const
+    {
+        return const_reverse_iterator(end());
+    }
+
+    template <typename T>
+    vector<T>::const_reverse_iterator vector<T>::crend() const
+    {
+        return const_reverse_iterator(begin());
     }
 
     // Private member functions
