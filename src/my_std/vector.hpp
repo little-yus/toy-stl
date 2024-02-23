@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <new>
 #include <cassert>
+#include <memory>
 
 namespace my
 {
@@ -454,7 +455,7 @@ namespace my
     }
 
 
-    template <typename T>
+    template <typename T, typename A = std::allocator<T>>
     class vector
     {
     public:
@@ -557,83 +558,84 @@ namespace my
         bool is_memory_filled() const;
         void grow();
 
+        A allocator_ { };
         std::size_t size_ {0};
         std::size_t capacity_ {0};
         T* data_ {nullptr};
     };
 
     // Constructors
-    template <typename T>
-    vector<T>::vector()
+    template <typename T, typename A>
+    vector<T, A>::vector()
     {
 
     }
 
-    template <typename T>
-    vector<T>::vector(std::size_t size) :
+    template <typename T, typename A>
+    vector<T, A>::vector(std::size_t size) :
         size_{size},
         capacity_{size},
-        data_{static_cast<T*>(::operator new (sizeof(T) * size))}
+        data_{std::allocator_traits<A>::allocate(allocator_, size)}
     {
         T* begin = data_;
         T* end = data_ + size_;
 
         for (T* ptr = begin; ptr != end; ptr += 1) {
-            new (ptr) T();
+            std::allocator_traits<A>::construct(allocator_, ptr);
         }
     }
 
-    template <typename T>
-    vector<T>::vector(std::size_t size, const T& value) :
+    template <typename T, typename A>
+    vector<T, A>::vector(std::size_t size, const T& value) :
         size_{size},
         capacity_{size},
-        data_{static_cast<T*>(::operator new (sizeof(T) * size))}
+        data_{std::allocator_traits<A>::allocate(allocator_, size)}
     {
         T* begin = data_;
         T* end = data_ + size_;
 
         for (T* ptr = begin; ptr != end; ptr += 1) {
-            new (ptr) T(value);
+            std::allocator_traits<A>::construct(allocator_, ptr, value);
         }
     }
 
-    template <typename T>
+    template <typename T, typename A>
     template <std::input_iterator I>
-    vector<T>::vector(I first, I last) : vector()
+    vector<T, A>::vector(I first, I last) : vector()
     {
         for (auto i = first; i != last; ++i) {
             push_back(*i);
         }
     }
 
-    template <typename T>
-    vector<T>::vector(std::initializer_list<T> init_list) :
+    template <typename T, typename A>
+    vector<T, A>::vector(std::initializer_list<T> init_list) :
         vector(std::begin(init_list), std::end(init_list))
     {
 
     }
 
-    template <typename T>
-    vector<T>::vector(const vector& other) :
+    template <typename T, typename A>
+    vector<T, A>::vector(const vector& other) :
         size_{other.size_},
         capacity_{other.size_}, // vector does not have to copy capacity
-        data_{static_cast<T*>(::operator new (sizeof(T) * other.size_))}
+        data_{std::allocator_traits<A>::allocate(allocator_, other.size_)}
     {
         for (std::size_t i = 0; i < size_; i += 1) {
-            new (data_ + i) T(other.data_[i]);
+            std::allocator_traits<A>::construct(allocator_, data_ + i, other.data_[i]);
         }
     }
 
     // Maybe reimplement for better performance?
-    template <typename T>
-    vector<T>& vector<T>::operator= (vector other)
+    template <typename T, typename A>
+    vector<T, A>& vector<T, A>::operator= (vector other)
     {
         this->swap(other);
         return *this;
     }
 
-    template <typename T>
-    vector<T>::vector(vector&& other) :
+    template <typename T, typename A>
+    vector<T, A>::vector(vector&& other) :
         size_{other.size_},
         capacity_{other.capacity_},
         data_{other.data_}
@@ -643,28 +645,28 @@ namespace my
         other.data_ = nullptr;
     }
 
-    template <typename T>
-    vector<T>& vector<T>::operator= (vector&& other)
+    template <typename T, typename A>
+    vector<T, A>& vector<T, A>::operator= (vector&& other)
     {
-        this->swap(vector<T>(std::move(other)));
+        this->swap(vector<T, A>(std::move(other)));
         return *this;
     }
 
-    template <typename T>
-    vector<T>::~vector()
+    template <typename T, typename A>
+    vector<T, A>::~vector()
     {
         T* begin = data_;
         T* end = data_ + size_;
 
         for (T* ptr = begin; ptr != end; ptr += 1) {
-            ptr->~T();
+            std::allocator_traits<A>::destroy(allocator_, ptr);
         }
 
-        ::operator delete(static_cast<void*>(data_)); // Not sure if this is ok
+        std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
     }
 
-    template <typename T>
-    void vector<T>::swap(vector& other)
+    template <typename T, typename A>
+    void vector<T, A>::swap(vector& other)
     {
         using std::swap;
         swap(this->size_, other.size_);
@@ -673,39 +675,39 @@ namespace my
     }
 
     // Other functions
-    template <typename T>
-    bool vector<T>::empty()
+    template <typename T, typename A>
+    bool vector<T, A>::empty()
     {
         return true;
     }
 
-    template <typename T>
-    std::size_t vector<T>::size() const
+    template <typename T, typename A>
+    std::size_t vector<T, A>::size() const
     {
         return size_;
     }
 
-    template <typename T>
-    std::size_t vector<T>::capacity() const
+    template <typename T, typename A>
+    std::size_t vector<T, A>::capacity() const
     {
         return capacity_;
     }
 
-    template <typename T>
-    T* vector<T>::data()
+    template <typename T, typename A>
+    T* vector<T, A>::data()
     {
         return data_;
     }
 
-    template <typename T>
-    const T* vector<T>::data() const
+    template <typename T, typename A>
+    const T* vector<T, A>::data() const
     {
         return data_;
     }
 
     // Comparisons
-    template <typename T>
-    bool vector<T>::operator== (const vector& other) const
+    template <typename T, typename A>
+    bool vector<T, A>::operator== (const vector& other) const
     {
         if (size() != other.size()) {
             return false;
@@ -720,8 +722,8 @@ namespace my
         return true;
     }
 
-    template <typename T>
-    auto vector<T>::operator<=> (const vector& other) const
+    template <typename T, typename A>
+    auto vector<T, A>::operator<=> (const vector& other) const
     {
         if constexpr (std::three_way_comparable<T>) {
             for (size_type i = 0; i < std::min(size(), other.size()); i += 1) {
@@ -753,20 +755,20 @@ namespace my
         }
     }
 
-    template <typename T>
-    T& vector<T>::operator[] (std::size_t index)
+    template <typename T, typename A>
+    T& vector<T, A>::operator[] (std::size_t index)
     {
         return data_[index];
     }
 
-    template <typename T>
-    const T& vector<T>::operator[] (std::size_t index) const
+    template <typename T, typename A>
+    const T& vector<T, A>::operator[] (std::size_t index) const
     {
         return data_[index];
     }
 
-    template <typename T>
-    T& vector<T>::at(std::size_t index)
+    template <typename T, typename A>
+    T& vector<T, A>::at(std::size_t index)
     {
         if (index >= size()) {
             throw std::out_of_range("Invalid element index");
@@ -775,8 +777,8 @@ namespace my
         return (*this)[index];
     }
 
-    template <typename T>
-    const T& vector<T>::at(std::size_t index) const
+    template <typename T, typename A>
+    const T& vector<T, A>::at(std::size_t index) const
     {
         if (index >= size()) {
             throw std::out_of_range("Invalid element index");
@@ -785,276 +787,280 @@ namespace my
         return (*this)[index];
     }
 
-    template <typename T>
-    T& vector<T>::front()
+    template <typename T, typename A>
+    T& vector<T, A>::front()
     {
         return (*this)[0];
     }
 
-    template <typename T>
-    const T& vector<T>::front() const
+    template <typename T, typename A>
+    const T& vector<T, A>::front() const
     {
         return (*this)[0];
     }
 
-    template <typename T>
-    T& vector<T>::back()
+    template <typename T, typename A>
+    T& vector<T, A>::back()
     {
         return (*this)[size() - 1];
     }
 
-    template <typename T>
-    const T& vector<T>::back() const
+    template <typename T, typename A>
+    const T& vector<T, A>::back() const
     {
         return (*this)[size() - 1];
     }
 
-    template <typename T>
-    void vector<T>::push_back(const T& value)
+    template <typename T, typename A>
+    void vector<T, A>::push_back(const T& value)
+    {
+        if (is_memory_filled()) {
+            grow();
+        }
+
+        std::allocator_traits<A>::construct(allocator_, data_ + size_, value);
+        size_ += 1;
+    }  
+
+    template <typename T, typename A>
+    void vector<T, A>::push_back(T&& value)
     {
         if (is_memory_filled()) {
             grow();
         }
         
-        new (data_ + size_) T(value);
+        std::allocator_traits<A>::construct(allocator_, data_ + size_, value); // Maybe std::forward(value)?
         size_ += 1;
     }
 
-    template <typename T>
-    void vector<T>::push_back(T&& value)
-    {
-        if (is_memory_filled()) {
-            grow();
-        }
-        
-        new (data_ + size_) T(value);
-        size_ += 1;
-    }
-
-    template <typename T>
-    void vector<T>::pop_back()
+    template <typename T, typename A>
+    void vector<T, A>::pop_back()
     {
         size_ -= 1;
-        data_[size_].~T();
+        std::allocator_traits<A>::destroy(allocator_, data_ + size_);
     }
 
-    template <typename T>
+    template <typename T, typename A>
     template <typename ... Args>
-    T& vector<T>::emplace_back(Args&& ... args)
+    T& vector<T, A>::emplace_back(Args&& ... args)
     {
         if (is_memory_filled()) {
             grow();
         }
         
-        new (data_ + size_) T(std::forward<Args>(args) ...);
+        std::allocator_traits<A>::construct(allocator_, data_ + size_, std::forward<Args>(args) ...);
         size_ += 1;
 
         return back();
     }
 
-    template <typename T>
-    void vector<T>::clear()
+    template <typename T, typename A>
+    void vector<T, A>::clear()
     {
         T* begin = data_;
         T* end = data_ + size_;
 
         for (T* ptr = begin; ptr != end; ptr += 1) {
-            ptr->~T();
+            std::allocator_traits<A>::destroy(allocator_, ptr);
         }
 
         size_ = 0;
     }
 
-    template <typename T>
-    void vector<T>::resize(std::size_t new_size)
+    template <typename T, typename A>
+    void vector<T, A>::resize(std::size_t new_size)
     {
         if (new_size > size()) {
             if (new_size > capacity()) {
                 // Move data to new memory location
                 const std::size_t new_capacity = new_size;
-                T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+                T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
                 for (std::size_t i = 0; i < size(); i += 1) {
-                    new (new_data + i) T(std::move(data_[i]));
+                    std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
                 }
 
                 // Clear old memory
                 for (std::size_t i = 0; i < size(); i += 1) {
-                    data_[i].~T();
+                    std::allocator_traits<A>::destroy(allocator_, data_ + i);
                 }
-                ::operator delete(static_cast<void*>(data_));
+                std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
                 data_ = new_data;
                 capacity_ = new_capacity;
             }
 
             // Default construct new elements
             for (int i = size(); i < new_size; i += 1) {
-                new (data_ + i) T();
+                std::allocator_traits<A>::construct(allocator_, data_ + i);
             }
             size_ = new_size;
         } else if (new_size < size()) {
             for (int i = new_size; i < size(); i += 1) {
-                data_[i].~T();
+                std::allocator_traits<A>::destroy(allocator_, data_ + i);
             }
             size_ = new_size;
         }
     }
 
-    template <typename T>
-    void vector<T>::resize(std::size_t new_size, const T& value)
+    template <typename T, typename A>
+    void vector<T, A>::resize(std::size_t new_size, const T& value)
     {
         if (new_size > size()) {
             if (new_size > capacity()) {
                 // Move data to new memory location
                 const std::size_t new_capacity = new_size;
-                T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+
+                T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
                 for (std::size_t i = 0; i < size(); i += 1) {
-                    new (new_data + i) T(std::move(data_[i]));
+                    std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
                 }
 
                 // Clear old memory
                 for (std::size_t i = 0; i < size(); i += 1) {
-                    data_[i].~T();
+                    std::allocator_traits<A>::destroy(allocator_, data_ + i);
                 }
-                ::operator delete(static_cast<void*>(data_));
+                std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
                 data_ = new_data;
                 capacity_ = new_capacity;
             }
 
             // Copy construct new elements
             for (int i = size(); i < new_size; i += 1) {
-                new (data_ + i) T(value);
+                std::allocator_traits<A>::construct(allocator_, data_ + i, value);
             }
             size_ = new_size;
         } else if (new_size < size()) {
             for (int i = new_size; i < size(); i += 1) {
-                data_[i].~T();
+                std::allocator_traits<A>::destroy(allocator_, data_ + i);
             }
             size_ = new_size;
         }
     }
 
-    template <typename T>
-    void vector<T>::reserve(std::size_t new_capacity)
+    template <typename T, typename A>
+    void vector<T, A>::reserve(std::size_t new_capacity)
     {
         if (new_capacity > capacity()) {
             // Move data to new memory location
-            T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
             for (std::size_t i = 0; i < size(); i += 1) {
-                new (new_data + i) T(std::move(data_[i]));
+                std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
             }
 
             // Clear old memory
-            ::operator delete(static_cast<void*>(data_));
             for (std::size_t i = 0; i < size(); i += 1) {
-                data_[i].~T();
+                std::allocator_traits<A>::destroy(allocator_, data_ + i);
             }
+            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
             data_ = new_data;
             capacity_ = new_capacity;
         }
     }
 
-    template <typename T>
-    void vector<T>::shrink_to_fit()
+    template <typename T, typename A>
+    void vector<T, A>::shrink_to_fit()
     {
         if (size() < capacity()) {
             // Move data to new memory location
             const std::size_t new_capacity = size();
-            T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
             for (std::size_t i = 0; i < size(); i += 1) {
-                new (new_data + i) T(std::move(data_[i]));
+                std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
             }
 
             // Clear old memory
             for (std::size_t i = 0; i < size(); i += 1) {
-                data_[i].~T();
+                std::allocator_traits<A>::destroy(allocator_, data_ + i);
             }
-            ::operator delete(static_cast<void*>(data_));
+            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
             data_ = new_data;
             capacity_ = new_capacity;
         }
     }
 
-    template <typename T>
-    vector<T>::iterator vector<T>::begin()
+    template <typename T, typename A>
+    vector<T, A>::iterator vector<T, A>::begin()
     {
         return iterator(data());
     }
 
-    template <typename T>
-    vector<T>::iterator vector<T>::end()
+    template <typename T, typename A>
+    vector<T, A>::iterator vector<T, A>::end()
     {
         return iterator(data() + size());
     }
 
-    template <typename T>
-    vector<T>::const_iterator vector<T>::begin() const
+    template <typename T, typename A>
+    vector<T, A>::const_iterator vector<T, A>::begin() const
     {
         return const_iterator(data_); // data() will not work because it returns const T*
     }
 
-    template <typename T>
-    vector<T>::const_iterator vector<T>::end() const
+    template <typename T, typename A>
+    vector<T, A>::const_iterator vector<T, A>::end() const
     {
         return const_iterator(data_ + size_);
     }
 
-    template <typename T>
-    vector<T>::const_iterator vector<T>::cbegin() const
+    template <typename T, typename A>
+    vector<T, A>::const_iterator vector<T, A>::cbegin() const
     {
         return begin();
     }
 
-    template <typename T>
-    vector<T>::const_iterator vector<T>::cend() const
+    template <typename T, typename A>
+    vector<T, A>::const_iterator vector<T, A>::cend() const
     {
         return end();
     }
 
-    template <typename T>
-    vector<T>::reverse_iterator vector<T>::rbegin()
+    template <typename T, typename A>
+    vector<T, A>::reverse_iterator vector<T, A>::rbegin()
     {
         return reverse_iterator(end());
     }
 
-    template <typename T>
-    vector<T>::reverse_iterator vector<T>::rend()
+    template <typename T, typename A>
+    vector<T, A>::reverse_iterator vector<T, A>::rend()
     {
         return reverse_iterator(begin());
     }
 
-    template <typename T>
-    vector<T>::const_reverse_iterator vector<T>::rbegin() const
+    template <typename T, typename A>
+    vector<T, A>::const_reverse_iterator vector<T, A>::rbegin() const
     {
         return const_reverse_iterator(end());
     }
 
-    template <typename T>
-    vector<T>::const_reverse_iterator vector<T>::rend() const
+    template <typename T, typename A>
+    vector<T, A>::const_reverse_iterator vector<T, A>::rend() const
     {
         return const_reverse_iterator(begin());
     }
 
-    template <typename T>
-    vector<T>::const_reverse_iterator vector<T>::crbegin() const
+    template <typename T, typename A>
+    vector<T, A>::const_reverse_iterator vector<T, A>::crbegin() const
     {
         return const_reverse_iterator(end());
     }
 
-    template <typename T>
-    vector<T>::const_reverse_iterator vector<T>::crend() const
+    template <typename T, typename A>
+    vector<T, A>::const_reverse_iterator vector<T, A>::crend() const
     {
         return const_reverse_iterator(begin());
     }
 
     // Private member functions
-    template <typename T>
-    bool vector<T>::is_memory_filled() const
+    template <typename T, typename A>
+    bool vector<T, A>::is_memory_filled() const
     {
         return size() == capacity();
     }
 
-    template <typename T>
-    void vector<T>::grow()
+    template <typename T, typename A>
+    void vector<T, A>::grow()
     {
         // Calculate new capacity
         constexpr std::size_t growth_factor = 2;
@@ -1066,16 +1072,17 @@ namespace my
         }
 
         // Move data to new memory location
-        T* new_data = static_cast<T*>(::operator new (sizeof(T) * new_capacity));
+        T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
         for (std::size_t i = 0; i < size(); i += 1) {
-            new (new_data + i) T(std::move(data_[i]));
+            std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
         }
 
         // Clear old memory
         for (std::size_t i = 0; i < size(); i += 1) {
-            data_[i].~T();
+            std::allocator_traits<A>::destroy(allocator_, data_ + i);
         }
-        ::operator delete(static_cast<void*>(data_));
+        std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
         data_ = new_data;
         capacity_ = new_capacity;
     }
