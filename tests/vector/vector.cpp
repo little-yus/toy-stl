@@ -1235,3 +1235,17 @@ TEST_CASE("Const reverse iterators advance") {
         CHECK(vec.crend() - vec.size() == vec.crbegin());
     }
 }
+
+TEST_CASE("Contiguous iterator") {
+    my::vector<int> vec(10);
+    
+    REQUIRE(std::contiguous_iterator <decltype(vec.begin())>);
+    REQUIRE(std::contiguous_iterator <decltype(vec.end())>);
+}
+
+TEST_CASE("Constant contiguous iterator") {
+    my::vector<int> vec(10);
+    
+    REQUIRE(std::contiguous_iterator <decltype(vec.cbegin())>);
+    REQUIRE(std::contiguous_iterator <decltype(vec.cend())>);
+}

@@ -18,6 +18,7 @@ namespace my
         using difference_type = std::ptrdiff_t;
         using pointer = T*;
         using reference = T&;
+        using element_type = value_type;
 
         vector_iterator() = default;
         explicit vector_iterator(T* ptr);
@@ -166,6 +167,7 @@ namespace my
         using difference_type = std::ptrdiff_t;
         using pointer = const T*;
         using reference = const T&;
+        using element_type = const value_type;
 
         vector_const_iterator() = default;
         explicit vector_const_iterator(T* ptr);
@@ -488,10 +490,8 @@ namespace my
         // Rule of 5
         vector(const vector& other);
         vector& operator= (vector other);
-
         vector(vector&& other);
         vector& operator= (vector&& other);
-
         ~vector();
 
         void swap(vector& other);
@@ -510,13 +510,10 @@ namespace my
         // Element access
         T& operator[] (std::size_t index);
         const T& operator[] (std::size_t index) const;
-
         T& at(std::size_t index);
         const T& at(std::size_t index) const;
-
         T& front();
         const T& front() const;
-
         T& back();
         const T& back() const;
 
@@ -537,20 +534,16 @@ namespace my
         // Iterators
         iterator begin();
         iterator end();
-
         const_iterator begin() const;
         const_iterator end() const;
-
         const_iterator cbegin() const;
         const_iterator cend() const;
 
         // Reverse iterators
         reverse_iterator rbegin();
         reverse_iterator rend();
-
         const_reverse_iterator rbegin() const;
         const_reverse_iterator rend() const;
-
         const_reverse_iterator crbegin() const;
         const_reverse_iterator crend() const;
 
