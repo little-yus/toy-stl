@@ -481,11 +481,12 @@ namespace my
 
         // Constructors
         vector();
-        vector(std::size_t size);
-        vector(std::size_t size, const T& value);
+        vector(const A& allocator);
+        vector(std::size_t size, const A& allocator = A());
+        vector(std::size_t size, const T& value, const A& allocator = A());
         template <std::input_iterator I>
-        vector(I begin, I end);
-        vector(std::initializer_list<T> init_list);
+        vector(I begin, I end, const A& allocator = A());
+        vector(std::initializer_list<T> init_list, const A& allocator = A());
 
         // Rule of 5
         vector(const vector& other);
@@ -564,8 +565,16 @@ namespace my
 
     }
 
+    // Constructors
     template <typename T, typename A>
-    vector<T, A>::vector(std::size_t size) :
+    vector<T, A>::vector(const A& allocator) : allocator_{allocator}
+    {
+
+    }
+
+    template <typename T, typename A>
+    vector<T, A>::vector(std::size_t size, const A& allocator) :
+        allocator_{allocator},
         size_{size},
         capacity_{size},
         data_{std::allocator_traits<A>::allocate(allocator_, size)}
@@ -579,7 +588,8 @@ namespace my
     }
 
     template <typename T, typename A>
-    vector<T, A>::vector(std::size_t size, const T& value) :
+    vector<T, A>::vector(std::size_t size, const T& value, const A& allocator) :
+        allocator_{allocator},
         size_{size},
         capacity_{size},
         data_{std::allocator_traits<A>::allocate(allocator_, size)}
@@ -594,7 +604,7 @@ namespace my
 
     template <typename T, typename A>
     template <std::input_iterator I>
-    vector<T, A>::vector(I first, I last) : vector()
+    vector<T, A>::vector(I first, I last, const A& allocator) : vector(allocator)
     {
         for (auto i = first; i != last; ++i) {
             push_back(*i);
@@ -602,14 +612,15 @@ namespace my
     }
 
     template <typename T, typename A>
-    vector<T, A>::vector(std::initializer_list<T> init_list) :
-        vector(std::begin(init_list), std::end(init_list))
+    vector<T, A>::vector(std::initializer_list<T> init_list, const A& allocator) :
+        vector(std::begin(init_list), std::end(init_list), allocator)
     {
 
     }
 
     template <typename T, typename A>
     vector<T, A>::vector(const vector& other) :
+        allocator_{std::allocator_traits<A>::select_on_container_copy_construction(other.allocator_)},
         size_{other.size_},
         capacity_{other.size_}, // vector does not have to copy capacity
         data_{std::allocator_traits<A>::allocate(allocator_, other.size_)}
@@ -629,6 +640,7 @@ namespace my
 
     template <typename T, typename A>
     vector<T, A>::vector(vector&& other) :
+        allocator_{std::move(other.allocator_)},
         size_{other.size_},
         capacity_{other.capacity_},
         data_{other.data_}
@@ -662,6 +674,7 @@ namespace my
     void vector<T, A>::swap(vector& other)
     {
         using std::swap;
+        swap(this->allocator_, this->allocator_);
         swap(this->size_, other.size_);
         swap(this->capacity_, other.capacity_);
         swap(this->data_, other.data_);

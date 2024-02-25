@@ -3,6 +3,7 @@
 
 #include <iterator>
 #include <ranges>
+#include <memory_resource>
 
 TEST_CASE("Default constructor") {
     my::vector<int> vec;
@@ -1248,4 +1249,15 @@ TEST_CASE("Constant contiguous iterator") {
     
     REQUIRE(std::contiguous_iterator <decltype(vec.cbegin())>);
     REQUIRE(std::contiguous_iterator <decltype(vec.cend())>);
+}
+
+TEST_CASE("Custom allocators") {
+    // Basic smoke test
+    my::vector<int, std::pmr::polymorphic_allocator<int>> vec = { 1, 2, 3 };
+    CHECK(vec.size() == 3);
+    CHECK(vec.back() == 3);
+
+    vec.pop_back();
+    CHECK(vec.size() == 2);
+    CHECK(vec.back() == 2);
 }
