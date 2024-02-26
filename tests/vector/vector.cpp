@@ -134,6 +134,16 @@ TEST_CASE("Constructing from initializer_list") {
         CHECK(vec[1] == 2);
         CHECK(vec[2] == 3);
     }
+
+    SUBCASE("Assigning initializer_list") {
+        my::vector<int> vec(10);
+        vec = { 1, 2, 3 };
+
+        CHECK(vec.size() == 3);
+        CHECK(vec[0] == 1);
+        CHECK(vec[1] == 2);
+        CHECK(vec[2] == 3);
+    }
 }
 
 TEST_CASE("Copy constructor") {

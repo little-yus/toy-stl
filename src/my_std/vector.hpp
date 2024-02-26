@@ -495,6 +495,8 @@ namespace my
         constexpr vector& operator= (vector&& other);
         ~vector();
 
+        // Other
+        constexpr vector& operator= (std::initializer_list<T> init_list);
         constexpr void swap(vector& other) noexcept;
 
         // Propery access
@@ -670,6 +672,14 @@ namespace my
         }
 
         std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+    }
+
+    template <typename T, typename A>
+    constexpr vector<T, A>& vector<T, A>::operator= (std::initializer_list<T> init_list)
+    {
+        vector<T, A> temporary(init_list);
+        this->swap(temporary);
+        return *this;
     }
 
     template <typename T, typename A>
