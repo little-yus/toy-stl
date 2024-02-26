@@ -500,6 +500,7 @@ namespace my
         // Propery access
         constexpr bool empty() const noexcept;
         constexpr size_type size() const noexcept;
+        constexpr size_type max_size() const noexcept;
         constexpr size_type capacity() const noexcept;
         constexpr T* data() noexcept;
         constexpr const T* data() const noexcept;
@@ -527,9 +528,9 @@ namespace my
 
         // Size/capacity modification
         constexpr void clear() noexcept;
-        constexpr void resize(std::size_t new_size);
-        constexpr void resize(std::size_t new_size, const T& value);
-        constexpr void reserve(std::size_t new_capacity);
+        constexpr void resize(size_type new_size);
+        constexpr void resize(size_type new_size, const T& value);
+        constexpr void reserve(size_type new_capacity);
         constexpr void shrink_to_fit();
 
         // Iterators
@@ -553,8 +554,8 @@ namespace my
         void grow();
 
         A allocator_ { };
-        std::size_t size_ {0};
-        std::size_t capacity_ {0};
+        size_type size_ {0};
+        size_type capacity_ {0};
         T* data_ {nullptr};
     };
 
@@ -573,7 +574,7 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr vector<T, A>::vector(std::size_t size, const A& allocator) :
+    constexpr vector<T, A>::vector(size_type size, const A& allocator) :
         allocator_{allocator},
         size_{size},
         capacity_{size},
@@ -588,7 +589,7 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr vector<T, A>::vector(std::size_t size, const T& value, const A& allocator) :
+    constexpr vector<T, A>::vector(size_type size, const T& value, const A& allocator) :
         allocator_{allocator},
         size_{size},
         capacity_{size},
@@ -689,13 +690,19 @@ namespace my
     }
     
     template <typename T, typename A>
-    constexpr std::size_t vector<T, A>::size() const noexcept
+    constexpr vector<T, A>::size_type vector<T, A>::size() const noexcept
     {
         return size_;
     }
+
+    template <typename T, typename A>
+    constexpr vector<T, A>::size_type vector<T, A>::max_size() const noexcept
+    {
+        return std::numeric_limits<difference_type>::max();
+    }
     
     template <typename T, typename A>
-    constexpr std::size_t vector<T, A>::capacity() const noexcept
+    constexpr vector<T, A>::size_type vector<T, A>::capacity() const noexcept
     {
         return capacity_;
     }
@@ -764,19 +771,19 @@ namespace my
 
     // Element access
     template <typename T, typename A>
-    constexpr vector<T, A>::reference vector<T, A>::operator[] (std::size_t index)
+    constexpr vector<T, A>::reference vector<T, A>::operator[] (size_type index)
     {
         return data_[index];
     }
 
     template <typename T, typename A>
-    constexpr vector<T, A>::const_reference vector<T, A>::operator[] (std::size_t index) const
+    constexpr vector<T, A>::const_reference vector<T, A>::operator[] (size_type index) const
     {
         return data_[index];
     }
 
     template <typename T, typename A>
-    constexpr vector<T, A>::reference vector<T, A>::at(std::size_t index)
+    constexpr vector<T, A>::reference vector<T, A>::at(size_type index)
     {
         if (index >= size()) {
             throw std::out_of_range("Invalid element index");
@@ -786,7 +793,7 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr vector<T, A>::const_reference vector<T, A>::at(std::size_t index) const
+    constexpr vector<T, A>::const_reference vector<T, A>::at(size_type index) const
     {
         if (index >= size()) {
             throw std::out_of_range("Invalid element index");
@@ -838,7 +845,7 @@ namespace my
             grow();
         }
         
-        std::allocator_traits<A>::construct(allocator_, data_ + size_, value); // Maybe std::forward(value)?
+        std::allocator_traits<A>::construct(allocator_, data_ + size_, value); // Maybe (value)?
         size_ += 1;
     }
 
@@ -878,7 +885,7 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr void vector<T, A>::resize(std::size_t new_size)
+    constexpr void vector<T, A>::resize(size_type new_size)
     {
         if (new_size > size()) {
             if (new_size > capacity()) {
@@ -912,7 +919,7 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr void vector<T, A>::resize(std::size_t new_size, const T& value)
+    constexpr void vector<T, A>::resize(size_type new_size, const T& value)
     {
         if (new_size > size()) {
             if (new_size > capacity()) {
@@ -948,7 +955,7 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr void vector<T, A>::reserve(std::size_t new_capacity)
+    constexpr void vector<T, A>::reserve(size_type new_capacity)
     {
         if (new_capacity > capacity()) {
             // Move data to new memory location
