@@ -1,8 +1,9 @@
-#ifndef REVERSE_ITERATOR_HPP
-#define REVERSE_ITERATOR_HPP
+#ifndef TOY_SDL_REVERSE_ITERATOR_HPP
+#define TOY_SDL_REVERSE_ITERATOR_HPP
 
 #include <type_traits>
 #include <concepts>
+#include <iterator>
 
 namespace my
 {
@@ -197,4 +198,4 @@ namespace my
     }
 }
 
-#endif /* REVERSE_ITERATOR_HPP */
+#endif /* TOY_SDL_REVERSE_ITERATOR_HPP */
