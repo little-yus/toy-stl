@@ -330,6 +330,8 @@ namespace my
         using reverse_iterator = my::reverse_iterator<iterator>; // Here we shadow reverse_iterator class template, be careful
         using const_reverse_iterator = my::reverse_iterator<const_iterator>;
 
+        using allocator_type = A;
+
         // Constructors
         constexpr vector() noexcept(noexcept(A()));
         constexpr explicit vector(const A& allocator) noexcept;
@@ -348,7 +350,9 @@ namespace my
 
         // Other
         constexpr vector& operator= (std::initializer_list<T> init_list);
-        constexpr void swap(vector& other) noexcept;
+        constexpr void swap(vector& other) noexcept(
+            std::allocator_traits<allocator_type>::propagate_on_container_swap::value || std::allocator_traits<allocator_type>::is_always_equal::value
+        );
 
         // Propery access
         constexpr bool empty() const noexcept;
@@ -534,10 +538,15 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr void vector<T, A>::swap(vector& other) noexcept
+    constexpr void vector<T, A>::swap(vector& other) noexcept(
+        std::allocator_traits<allocator_type>::propagate_on_container_swap::value || std::allocator_traits<allocator_type>::is_always_equal::value
+    )
     {
         using std::swap;
-        swap(this->allocator_, this->allocator_);
+        if (std::allocator_traits<allocator_type>::propagate_on_container_swap::value) {
+            swap(this->allocator_, other.allocator_);
+        }
+
         swap(this->size_, other.size_);
         swap(this->capacity_, other.capacity_);
         swap(this->data_, other.data_);
