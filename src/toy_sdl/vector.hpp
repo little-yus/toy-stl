@@ -1,5 +1,5 @@
-#ifndef TOY_SDL_VECTOR_HPP
-#define TOY_SDL_VECTOR_HPP
+#ifndef VECTOR_HPP
+#define VECTOR_HPP
 
 #include "vector_iterator.hpp"
 #include "vector_const_iterator.hpp"
@@ -86,6 +86,8 @@ namespace my
         constexpr void pop_back(); // not noexcept because reasons https://stackoverflow.com/questions/55222295/when-can-stdvectorpop-back-throw-an-exception
         template <typename ... Args>
         constexpr reference emplace_back(Args&& ... args);
+        constexpr iterator insert(const_iterator pos, const T& value);
+        constexpr iterator insert(const_iterator pos, T&& value);
 
         // Size/capacity modification
         constexpr void clear() noexcept;
@@ -112,6 +114,7 @@ namespace my
 
     private:
         bool is_memory_filled() const;
+        size_type calculate_new_capacity() const;
         void grow();
 
         A allocator_ { };
@@ -444,6 +447,110 @@ namespace my
         return back();
     }
 
+    template <typename T, typename A>
+    constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, const T& value)
+    {
+        if (is_memory_filled()) {
+            std::size_t new_capacity = calculate_new_capacity();
+
+            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
+            // Move elements [begin, pos)
+            T* new_data_ptr = new_data;
+            for (auto i = cbegin(); i != pos; ++i, ++new_data_ptr) {
+                std::allocator_traits<A>::construct(allocator_, new_data_ptr, *i);
+            }
+
+            // Move elements [pos, end)
+            new_data_ptr = new_data + new_capacity - 1;
+            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
+                std::allocator_traits<A>::construct(allocator_, new_data_ptr, *(i - 1));
+            }
+
+            // Construct value in correct position
+            auto new_element_pointer = data_ + (pos - begin());
+            std::allocator_traits<A>::construct(allocator_, new_element_pointer, value);
+
+            // Clear old memory
+            for (std::size_t i = 0; i < size(); i += 1) {
+                std::allocator_traits<A>::destroy(allocator_, data_ + i);
+            }
+            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
+            data_ = new_data;
+            capacity_ = new_capacity;
+            size_ = size_ + 1;
+
+            return iterator(new_element_pointer);
+        } else {
+            // Handle case without reallocation
+            // Only elements after pos need to be moved
+            T* new_data_ptr = data_ + size_;
+            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
+                std::allocator_traits<A>::construct(allocator_, new_data_ptr, *(i - 1));
+            }
+            
+            // construct value in correct position
+            auto new_element_pointer = data_ + (pos - begin());
+            std::allocator_traits<A>::construct(allocator_, new_element_pointer, value);
+
+            size_ = size_ + 1;
+
+            return iterator(new_element_pointer);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, T&& value)
+    {
+        if (is_memory_filled()) {
+            std::size_t new_capacity = calculate_new_capacity();
+
+            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
+            // Move elements [begin, pos)
+            T* new_data_ptr = new_data;
+            for (auto i = cbegin(); i != pos; ++i, ++new_data_ptr) {
+                std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*i));
+            }
+
+            // Move elements [pos, end)
+            new_data_ptr = new_data + new_capacity - 1;
+            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
+                std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*(i - 1)));
+            }
+
+            // Construct value in correct position
+            auto new_element_pointer = data_ + (pos - cbegin());
+            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::move(value));
+
+            // Clear old memory
+            for (std::size_t i = 0; i < size(); i += 1) {
+                std::allocator_traits<A>::destroy(allocator_, data_ + i);
+            }
+            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
+            data_ = new_data;
+            capacity_ = new_capacity;
+            size_ = size_ + 1;
+
+            return iterator(new_element_pointer);
+        } else {
+            // Handle case without reallocation
+            // Only elements after pos need to be moved
+            T* new_data_ptr = data_ + size_;
+            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
+                std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*(i - 1)));
+            }
+            
+            // construct value in correct position
+            auto new_element_pointer = data_ + (pos - cbegin());
+            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::move(value));
+
+            size_ = size_ + 1;
+
+            return iterator(new_element_pointer);
+        }
+    }
+
     // Size/capacity modification
     template <typename T, typename A>
     constexpr void vector<T, A>::clear() noexcept
@@ -653,16 +760,21 @@ namespace my
     }
 
     template <typename T, typename A>
+    vector<T, A>::size_type vector<T, A>::calculate_new_capacity() const
+    {
+        constexpr std::size_t growth_factor = 2;
+
+        if (capacity_ == 0) {
+            return 1;
+        } else {
+            return capacity_ * growth_factor;
+        }
+    }
+
+    template <typename T, typename A>
     void vector<T, A>::grow()
     {
-        // Calculate new capacity
-        constexpr std::size_t growth_factor = 2;
-        std::size_t new_capacity;
-        if (capacity_ == 0) { // if we were to double it would remain 0
-            new_capacity = 1;
-        } else {
-            new_capacity = capacity_ * growth_factor;
-        }
+        std::size_t new_capacity = calculate_new_capacity();
 
         // Move data to new memory location
         T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
@@ -681,4 +793,4 @@ namespace my
     }
 }
 
-#endif /* TOY_SDL_VECTOR_HPP */
+#endif /* VECTOR_HPP */

@@ -794,6 +794,55 @@ TEST_CASE("Vector spaceship operator") {
     }
 }
 
+// TODO: Add test cases covering insertion with reallocation
+TEST_CASE("Ordinary insertion") {
+    SUBCASE("Insert before first element") {
+        my::vector<int> vec = { 1, 2, 3 };
+        vec.insert(vec.cbegin(), 0);
+        CHECK(vec == my::vector { 0, 1, 2, 3 });
+    }
+
+    SUBCASE("Insert before end element (same as push back)") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 1, 2, 3 };
+
+        a.insert(a.cend(), 4);
+        b.push_back(4);
+
+        CHECK(a == b);
+    }
+
+    SUBCASE("Insert in the middle") {
+        my::vector<int> vec = { 1, 2, 3 };
+        vec.insert(vec.cbegin() + 2, 123);
+        CHECK(vec == my::vector { 1, 2, 123, 3 });
+    }
+}
+
+TEST_CASE("Rvalue reference insertion") {
+    SUBCASE("Insert before first element") {
+        my::vector<int> vec = { 1, 2, 3 };
+        vec.insert(vec.cbegin(), std::move(0));
+        CHECK(vec == my::vector { 0, 1, 2, 3 });
+    }
+
+    SUBCASE("Insert before end element (same as push back)") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 1, 2, 3 };
+
+        a.insert(a.cend(), std::move(4));
+        b.push_back(std::move(4));
+
+        CHECK(a == b);
+    }
+
+    SUBCASE("Insert in the middle") {
+        my::vector<int> vec = { 1, 2, 3 };
+        vec.insert(vec.cbegin() + 2, std::move(123));
+        CHECK(vec == my::vector { 1, 2, 123, 3 });
+    }
+}
+
 // Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;
