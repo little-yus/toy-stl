@@ -403,23 +403,13 @@ namespace my
     template <typename T, typename A>
     constexpr void vector<T, A>::push_back(const T& value)
     {
-        if (is_memory_filled()) {
-            grow();
-        }
-
-        std::allocator_traits<A>::construct(allocator_, data_ + size_, value);
-        size_ += 1;
+        emplace_back(value);
     }  
 
     template <typename T, typename A>
     constexpr void vector<T, A>::push_back(T&& value)
     {
-        if (is_memory_filled()) {
-            grow();
-        }
-        
-        std::allocator_traits<A>::construct(allocator_, data_ + size_, std::move(value)); // we need to cast because value is lvalue
-        size_ += 1;
+        emplace_back(std::move(value));
     }
 
     template <typename T, typename A>
