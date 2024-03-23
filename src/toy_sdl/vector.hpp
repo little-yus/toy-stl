@@ -9,6 +9,7 @@
 #include <new>
 #include <cassert>
 #include <memory>
+#include <iostream>
 
 namespace my
 {
@@ -88,6 +89,8 @@ namespace my
         constexpr reference emplace_back(Args&& ... args);
         constexpr iterator insert(const_iterator pos, const T& value);
         constexpr iterator insert(const_iterator pos, T&& value);
+        template <typename ... Args>
+        constexpr iterator emplace(const_iterator pos, Args&& ... args);
 
         // Size/capacity modification
         constexpr void clear() noexcept;
@@ -117,6 +120,15 @@ namespace my
         size_type calculate_new_capacity() const;
         void grow();
 
+        constexpr void destroy_range(pointer begin, pointer end);
+        constexpr void default_construct_range(pointer begin, pointer end);
+        constexpr void copy_construct_range(pointer begin, pointer end, const T& value);
+        constexpr void copy_range(pointer source_begin, pointer source_end, pointer destination_begin);
+        constexpr void move_range(pointer source_begin, pointer source_end, pointer destination_begin);
+        constexpr void copy_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
+        constexpr void move_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
+        constexpr void move_assign_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
+
         A allocator_ { };
         size_type size_ {0};
         size_type capacity_ {0};
@@ -144,12 +156,7 @@ namespace my
         capacity_{size},
         data_{std::allocator_traits<A>::allocate(allocator_, size)}
     {
-        T* begin = data_;
-        T* end = data_ + size_;
-
-        for (T* ptr = begin; ptr != end; ptr += 1) {
-            std::allocator_traits<A>::construct(allocator_, ptr);
-        }
+        default_construct_range(data_, data_ + size_);
     }
 
     template <typename T, typename A>
@@ -159,12 +166,7 @@ namespace my
         capacity_{size},
         data_{std::allocator_traits<A>::allocate(allocator_, size)}
     {
-        T* begin = data_;
-        T* end = data_ + size_;
-
-        for (T* ptr = begin; ptr != end; ptr += 1) {
-            std::allocator_traits<A>::construct(allocator_, ptr, value);
-        }
+        copy_construct_range(data_, data_ + size_, value);
     }
 
     template <typename T, typename A>
@@ -191,9 +193,7 @@ namespace my
         capacity_{other.size_}, // vector does not have to copy capacity
         data_{std::allocator_traits<A>::allocate(allocator_, other.size_)}
     {
-        for (std::size_t i = 0; i < size_; i += 1) {
-            std::allocator_traits<A>::construct(allocator_, data_ + i, other.data_[i]);
-        }
+        copy_range(other.data_, other.data_ + other.size_, data_);
     }
 
     // Maybe reimplement for better performance?
@@ -226,14 +226,9 @@ namespace my
     template <typename T, typename A>
     vector<T, A>::~vector()
     {
-        T* begin = data_;
-        T* end = data_ + size_;
-
-        for (T* ptr = begin; ptr != end; ptr += 1) {
-            std::allocator_traits<A>::destroy(allocator_, ptr);
-        }
-
+        destroy_range(data_, data_ + size_);
         std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+        // zeroing member variables is not required, so data_, size_ and capacity_ still contain garbage
     }
 
     template <typename T, typename A>
@@ -326,6 +321,7 @@ namespace my
             using ordering = std::compare_three_way_result_t<T>;
             return static_cast<ordering>(size() <=> other.size());
         } else {
+            // If value_type does not implement <=>, but has == and < then vector can still be ordered
             static_assert(requires (const T& a, const T& b)
             {
                 { a == b } -> std::convertible_to<bool>;
@@ -422,7 +418,7 @@ namespace my
             grow();
         }
         
-        std::allocator_traits<A>::construct(allocator_, data_ + size_, value); // Maybe (value)?
+        std::allocator_traits<A>::construct(allocator_, data_ + size_, std::move(value)); // we need to cast because value is lvalue
         size_ += 1;
     }
 
@@ -450,82 +446,39 @@ namespace my
     template <typename T, typename A>
     constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, const T& value)
     {
-        if (is_memory_filled()) {
-            std::size_t new_capacity = calculate_new_capacity();
-
-            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-            // Move elements [begin, pos)
-            T* new_data_ptr = new_data;
-            for (auto i = cbegin(); i != pos; ++i, ++new_data_ptr) {
-                std::allocator_traits<A>::construct(allocator_, new_data_ptr, *i);
-            }
-
-            // Move elements [pos, end)
-            new_data_ptr = new_data + new_capacity - 1;
-            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
-                std::allocator_traits<A>::construct(allocator_, new_data_ptr, *(i - 1));
-            }
-
-            // Construct value in correct position
-            auto new_element_pointer = data_ + (pos - begin());
-            std::allocator_traits<A>::construct(allocator_, new_element_pointer, value);
-
-            // Clear old memory
-            for (std::size_t i = 0; i < size(); i += 1) {
-                std::allocator_traits<A>::destroy(allocator_, data_ + i);
-            }
-            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
-
-            data_ = new_data;
-            capacity_ = new_capacity;
-            size_ = size_ + 1;
-
-            return iterator(new_element_pointer);
-        } else {
-            // Handle case without reallocation
-            // Only elements after pos need to be moved
-            T* new_data_ptr = data_ + size_;
-            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
-                std::allocator_traits<A>::construct(allocator_, new_data_ptr, *(i - 1));
-            }
-            
-            // construct value in correct position
-            auto new_element_pointer = data_ + (pos - begin());
-            std::allocator_traits<A>::construct(allocator_, new_element_pointer, value);
-
-            size_ = size_ + 1;
-
-            return iterator(new_element_pointer);
-        }
+        return emplace(pos, value);
     }
 
     template <typename T, typename A>
     constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, T&& value)
     {
+        return emplace(pos, std::move(value));
+    }
+
+    template <typename T, typename A>
+    template <typename ... Args>
+    constexpr vector<T, A>::iterator vector<T, A>::emplace(const_iterator pos, Args&& ... args)
+    {
         if (is_memory_filled()) {
             std::size_t new_capacity = calculate_new_capacity();
 
             T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
+            auto new_element_index = pos - cbegin();
             // Move elements [begin, pos)
-            T* new_data_ptr = new_data;
-            for (auto i = cbegin(); i != pos; ++i, ++new_data_ptr) {
-                std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*i));
-            }
+            move_range(data_, data_ + new_element_index, new_data);
 
             // Move elements [pos, end)
-            new_data_ptr = new_data + new_capacity - 1;
+            T* new_data_ptr = new_data + size_;
             for (auto i = cend(); i != pos; --i, --new_data_ptr) {
                 std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*(i - 1)));
             }
 
             // Construct value in correct position
             auto new_element_pointer = data_ + (pos - cbegin());
-            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::move(value));
+            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::forward<Args>(args) ...);
 
             // Clear old memory
-            for (std::size_t i = 0; i < size(); i += 1) {
-                std::allocator_traits<A>::destroy(allocator_, data_ + i);
-            }
+            constexpr void destroy_range(pointer begin, pointer end);
             std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
 
             data_ = new_data;
@@ -543,7 +496,7 @@ namespace my
             
             // construct value in correct position
             auto new_element_pointer = data_ + (pos - cbegin());
-            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::move(value));
+            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::forward<Args>(args) ...);
 
             size_ = size_ + 1;
 
@@ -555,13 +508,7 @@ namespace my
     template <typename T, typename A>
     constexpr void vector<T, A>::clear() noexcept
     {
-        T* begin = data_;
-        T* end = data_ + size_;
-
-        for (T* ptr = begin; ptr != end; ptr += 1) {
-            std::allocator_traits<A>::destroy(allocator_, ptr);
-        }
-
+        destroy_range(data_, data_ + size_);
         size_ = 0;
     }
 
@@ -573,28 +520,21 @@ namespace my
                 // Move data to new memory location
                 const std::size_t new_capacity = new_size;
                 T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-                for (std::size_t i = 0; i < size(); i += 1) {
-                    std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
-                }
+                move_range(data_, data_ + size_, new_data);
 
                 // Clear old memory
-                for (std::size_t i = 0; i < size(); i += 1) {
-                    std::allocator_traits<A>::destroy(allocator_, data_ + i);
-                }
+                destroy_range(data_, data_ + size_);
                 std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
                 data_ = new_data;
                 capacity_ = new_capacity;
             }
 
             // Default construct new elements
-            for (int i = size(); i < new_size; i += 1) {
-                std::allocator_traits<A>::construct(allocator_, data_ + i);
-            }
+            default_construct_range(data_ + size_, data_ + new_size);
             size_ = new_size;
         } else if (new_size < size()) {
-            for (int i = new_size; i < size(); i += 1) {
-                std::allocator_traits<A>::destroy(allocator_, data_ + i);
-            }
+            destroy_range(data_ + new_size, data_ + size_);
             size_ = new_size;
         }
     }
@@ -608,14 +548,10 @@ namespace my
                 const std::size_t new_capacity = new_size;
 
                 T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-                for (std::size_t i = 0; i < size(); i += 1) {
-                    std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
-                }
+                move_range(data_, data_ + size_, new_data);
 
                 // Clear old memory
-                for (std::size_t i = 0; i < size(); i += 1) {
-                    std::allocator_traits<A>::destroy(allocator_, data_ + i);
-                }
+                destroy_range(data_, data_ + size_);
                 std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
 
                 data_ = new_data;
@@ -623,14 +559,10 @@ namespace my
             }
 
             // Copy construct new elements
-            for (int i = size(); i < new_size; i += 1) {
-                std::allocator_traits<A>::construct(allocator_, data_ + i, value);
-            }
+            copy_construct_range(data_ + size_, data_ + new_size, value);
             size_ = new_size;
         } else if (new_size < size()) {
-            for (int i = new_size; i < size(); i += 1) {
-                std::allocator_traits<A>::destroy(allocator_, data_ + i);
-            }
+            destroy_range(data_ + new_size, data_ + size_);
             size_ = new_size;
         }
     }
@@ -641,14 +573,10 @@ namespace my
         if (new_capacity > capacity()) {
             // Move data to new memory location
             T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-            for (std::size_t i = 0; i < size(); i += 1) {
-                std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
-            }
+            move_range(data_, data_ + size_, new_data);
 
             // Clear old memory
-            for (std::size_t i = 0; i < size(); i += 1) {
-                std::allocator_traits<A>::destroy(allocator_, data_ + i);
-            }
+            destroy_range(data_, data_ + size_);
             std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
 
             data_ = new_data;
@@ -663,14 +591,10 @@ namespace my
             // Move data to new memory location
             const std::size_t new_capacity = size();
             T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-            for (std::size_t i = 0; i < size(); i += 1) {
-                std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
-            }
+            move_range(data_, data_ + size_, new_data);
 
             // Clear old memory
-            for (std::size_t i = 0; i < size(); i += 1) {
-                std::allocator_traits<A>::destroy(allocator_, data_ + i);
-            }
+            destroy_range(data_, data_ + size_);
             std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
 
             data_ = new_data;
@@ -778,18 +702,87 @@ namespace my
 
         // Move data to new memory location
         T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-        for (std::size_t i = 0; i < size(); i += 1) {
-            std::allocator_traits<A>::construct(allocator_, new_data + i, std::move(data_[i]));
-        }
+        move_range(data_, data_ + size_, new_data);
 
         // Clear old memory
-        for (std::size_t i = 0; i < size(); i += 1) {
-            std::allocator_traits<A>::destroy(allocator_, data_ + i);
-        }
+        destroy_range(data_, data_ + size_);
         std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
 
         data_ = new_data;
         capacity_ = new_capacity;
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::destroy_range(pointer begin, pointer end)
+    {
+        for (; begin != end; ++begin) {
+            std::allocator_traits<A>::destroy(allocator_, begin);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::default_construct_range(pointer begin, pointer end)
+    {
+        for (; begin != end; ++begin) {
+            std::allocator_traits<A>::construct(allocator_, begin);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::copy_construct_range(pointer begin, pointer end, const T& value)
+    {
+        for (; begin != end; ++begin) {
+            std::allocator_traits<A>::construct(allocator_, begin, value);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::copy_range(pointer source_begin, pointer source_end, pointer destination_begin)
+    {
+        for (; source_begin != source_end; ++source_begin, ++destination_begin) {
+            std::allocator_traits<A>::construct(allocator_, destination_begin, *source_begin);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::move_range(pointer source_begin, pointer source_end, pointer destination_begin)
+    {
+        for (; source_begin != source_end; ++source_begin, ++destination_begin) {
+            std::allocator_traits<A>::construct(allocator_, destination_begin, std::move(*source_begin));
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::copy_range_backwards(pointer source_begin, pointer source_end, pointer destination_end)
+    {
+        while (source_end != source_begin) {
+            --source_end;
+            --destination_end;
+
+            std::allocator_traits<A>::construct(allocator_, destination_end, *source_end);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::move_range_backwards(pointer source_begin, pointer source_end, pointer destination_end)
+    {
+        while (source_end != source_begin) {
+            --source_end;
+            --destination_end;
+
+            std::allocator_traits<A>::construct(allocator_, destination_end, std::move(*source_end));
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::move_assign_range_backwards(pointer source_begin, pointer source_end, pointer destination_end)
+    {
+        while (source_end != source_begin) {
+            --source_end;
+            --destination_end;
+
+            *destination_end = std::move(*source_end);
+        }
     }
 }
 
