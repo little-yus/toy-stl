@@ -9,7 +9,7 @@
 #include <new>
 #include <cassert>
 #include <memory>
-#include <iostream>
+#include <cmath>
 
 namespace my
 {
@@ -89,6 +89,9 @@ namespace my
         constexpr reference emplace_back(Args&& ... args);
         constexpr iterator insert(const_iterator pos, const T& value);
         constexpr iterator insert(const_iterator pos, T&& value);
+        constexpr iterator insert(const_iterator pos, size_type count, const T& value);
+        // template <class InputIt> constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
+        // constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
         template <typename ... Args>
         constexpr iterator emplace(const_iterator pos, Args&& ... args);
 
@@ -120,6 +123,7 @@ namespace my
         size_type calculate_new_capacity() const;
         void grow();
 
+        // TODO: Rename these, cause now things operate on 2 ranges vs 1 range and value have similar names
         constexpr void destroy_range(pointer begin, pointer end);
         constexpr void default_construct_range(pointer begin, pointer end);
         constexpr void copy_construct_range(pointer begin, pointer end, const T& value);
@@ -127,6 +131,7 @@ namespace my
         constexpr void move_range(pointer source_begin, pointer source_end, pointer destination_begin);
         constexpr void copy_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
         constexpr void move_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
+        constexpr void copy_assign_range(pointer begin, pointer end, const T& value);
         constexpr void move_assign_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
 
         A allocator_ { };
@@ -446,51 +451,115 @@ namespace my
     }
 
     template <typename T, typename A>
+    constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, size_type count, const T& value)
+    {
+        const auto insert_position = pos - cbegin();
+
+        if (count == 0) {
+            return iterator(data_ + insert_position);
+        }
+
+        const auto new_size = size_ + count;
+
+        if (new_size > capacity_) {
+            std::size_t new_capacity = new_size; // TODO: Maybe max(new_size, calculate_new_capacity()) ??
+            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
+
+            // Move elements [begin, pos)
+            move_range(data_, data_ + insert_position, new_data);
+            // Move elements [pos, end)
+            // Elements are move constructed in new location, so this is ok
+            move_range_backwards(data_ + insert_position, data_ + size_, new_data + new_size);
+            copy_construct_range(new_data + insert_position, new_data + insert_position + count, value);
+
+            // Clear old memory
+            destroy_range(data_, data_ + size_);
+            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
+            data_ = new_data;
+            capacity_ = new_capacity;
+            size_ = new_size;
+        } else {
+            // Move last count elements to uninitialized memory
+            // Backwards because this way arguments are easier to understand
+            // TODO: There should be better way than static_cast<difference_type>(count) everywhere
+            move_range_backwards(
+                data_ + size_ - std::min(cend() - pos, static_cast<difference_type>(count)),
+                data_ + size_,
+                data_ + size_ + count
+            );
+            // Move others to the end of array
+            // Assignment because destructors were not called for moved-out objects
+            // Backwards because input and output ranges can overlap
+            move_assign_range_backwards(
+                data_ + insert_position,
+                data_ + size_ - std::min(cend() - pos, static_cast<difference_type>(count)),
+                data_ + size_
+            );
+
+            // Some of new elements copy constructed in uninitialized memory
+            copy_construct_range(
+                data_ + size_,
+                data_ + size_ + count - std::min(cend() - pos, static_cast<difference_type>(count)),
+                value
+            );
+
+            // Some are copy assigned to moved-from objects in already occupied memory
+            copy_assign_range(
+                data_ + insert_position,
+                data_ + insert_position + std::min(cend() - pos, static_cast<difference_type>(count)),
+                value
+            );
+
+            size_ = new_size;
+        }
+
+        return iterator(data_ + insert_position);
+    }
+
+    template <typename T, typename A>
     template <typename ... Args>
     constexpr vector<T, A>::iterator vector<T, A>::emplace(const_iterator pos, Args&& ... args)
     {
+        const auto new_element_index = pos - cbegin();
         if (is_memory_filled()) {
             std::size_t new_capacity = calculate_new_capacity();
-
             T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
-            auto new_element_index = pos - cbegin();
+
             // Move elements [begin, pos)
             move_range(data_, data_ + new_element_index, new_data);
-
             // Move elements [pos, end)
-            T* new_data_ptr = new_data + size_;
-            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
-                std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*(i - 1)));
-            }
-
+            // Elements are move constructed in new location, so this is ok
+            move_range_backwards(data_ + new_element_index, data_ + size_, new_data + size_ + 1);
             // Construct value in correct position
-            auto new_element_pointer = data_ + (pos - cbegin());
-            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::forward<Args>(args) ...);
+            std::allocator_traits<A>::construct(allocator_, new_data + new_element_index, std::forward<Args>(args) ...);
 
             // Clear old memory
-            constexpr void destroy_range(pointer begin, pointer end);
+            destroy_range(data_, data_ + size_);
             std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
 
             data_ = new_data;
             capacity_ = new_capacity;
             size_ = size_ + 1;
 
-            return iterator(new_element_pointer);
+            return iterator(new_data + new_element_index);
         } else {
             // Handle case without reallocation
-            // Only elements after pos need to be moved
-            T* new_data_ptr = data_ + size_;
-            for (auto i = cend(); i != pos; --i, --new_data_ptr) {
-                std::allocator_traits<A>::construct(allocator_, new_data_ptr, std::move(*(i - 1)));
-            }
+            const auto elements_need_to_be_moved = cend() - pos;
             
-            // construct value in correct position
-            auto new_element_pointer = data_ + (pos - cbegin());
-            std::allocator_traits<A>::construct(allocator_, new_element_pointer, std::forward<Args>(args) ...);
+            if (elements_need_to_be_moved > 0) {
+                // Last element is move constructed in uninitialized memory
+                std::allocator_traits<A>::construct(allocator_, data_ + size_, std::move(data_[size_ - 1]));
+                // Others are move assigned to next element each in reverse order
+                move_assign_range_backwards(data_ + new_element_index, data_ + size_ - 1, data_ + size_);
+            }
+            // Copy assign value to moved from object at new_element_index
+            // TODO: What to do if pos == end and data_ + new_element_index will be in uninit memory??
+            *(data_ + new_element_index) = std::move(T(std::forward<Args>(args) ...)); // TODO: Replace with destructor and constructor maybe
 
             size_ = size_ + 1;
 
-            return iterator(new_element_pointer);
+            return iterator(data_ + new_element_index);
         }
     }
 
@@ -761,6 +830,14 @@ namespace my
             --destination_end;
 
             std::allocator_traits<A>::construct(allocator_, destination_end, std::move(*source_end));
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::copy_assign_range(pointer begin, pointer end, const T& value)
+    {
+        for (; begin != end; ++begin) {
+            *begin = value;
         }
     }
 

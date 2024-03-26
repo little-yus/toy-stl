@@ -843,6 +843,50 @@ TEST_CASE("Rvalue reference insertion") {
     }
 }
 
+TEST_CASE("Inserting copies") {
+    SUBCASE("Inserting zero copies does nothing") {
+        my::vector<int> vec = { 1, 2, 3 };
+        
+        vec.insert(vec.cend(), 0, 123);
+        vec.insert(vec.cbegin(), 0, 123);
+        vec.insert(vec.cbegin() + 1, 0, 123);
+
+        CHECK(vec == my::vector { 1, 2, 3 });
+    }
+
+    SUBCASE("Inserting before begin and end has the same effect for empty vector") {
+        my::vector<int> a;
+        my::vector<int> b;
+
+        a.insert(a.cbegin(), 3, 123);
+        b.insert(b.cend(), 3, 123);
+
+        CHECK(a == b);
+        CHECK(a == my::vector { 123, 123, 123 });
+    }
+
+    SUBCASE("Inserting before the end has is the same as push back") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 1, 2, 3 };
+
+        a.insert(a.cend(), 3, 123);
+        b.push_back(123);
+        b.push_back(123);
+        b.push_back(123);
+
+        CHECK(a == b);
+        CHECK(a == my::vector { 1, 2, 3, 123, 123, 123 });
+    }
+
+    SUBCASE("Insertion moves elements after insert position forward") {
+        my::vector<int> a = { 1, 2, 3, 4 };
+
+        a.insert(a.cbegin() + 2, 3, 123);
+
+        CHECK(a == my::vector { 1, 2, 123, 123, 123, 3, 4 });
+    }
+}
+
 // Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;
