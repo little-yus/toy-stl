@@ -90,7 +90,8 @@ namespace my
         constexpr iterator insert(const_iterator pos, const T& value);
         constexpr iterator insert(const_iterator pos, T&& value);
         constexpr iterator insert(const_iterator pos, size_type count, const T& value);
-        // template <class InputIt> constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
+        template <std::random_access_iterator InputIt>
+        constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
         // constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
         template <typename ... Args>
         constexpr iterator emplace(const_iterator pos, Args&& ... args);
@@ -127,11 +128,14 @@ namespace my
         constexpr void destroy_range(pointer begin, pointer end);
         constexpr void default_construct_range(pointer begin, pointer end);
         constexpr void copy_construct_range(pointer begin, pointer end, const T& value);
-        constexpr void copy_range(pointer source_begin, pointer source_end, pointer destination_begin);
+        template <typename InputIt, typename OutputIt>
+        constexpr void copy_range(InputIt source_begin, InputIt source_end, OutputIt destination_begin);
         constexpr void move_range(pointer source_begin, pointer source_end, pointer destination_begin);
         constexpr void copy_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
         constexpr void move_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
         constexpr void copy_assign_range(pointer begin, pointer end, const T& value);
+        template <typename InputIt, typename OutputIt>
+        constexpr void copy_assign_range_to_range(InputIt source_begin, InputIt source_end, OutputIt destination_begin);
         constexpr void move_assign_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
 
         A allocator_ { };
@@ -263,7 +267,7 @@ namespace my
     template <typename T, typename A>
     constexpr bool vector<T, A>::empty() const noexcept
     {
-        return true;
+        return size_ == 0;
     }
     
     template <typename T, typename A>
@@ -509,6 +513,79 @@ namespace my
                 data_ + insert_position,
                 data_ + insert_position + std::min(cend() - pos, static_cast<difference_type>(count)),
                 value
+            );
+
+            size_ = new_size;
+        }
+
+        return iterator(data_ + insert_position);
+    }
+
+    template <typename T, typename A>
+    template <std::random_access_iterator InputIt>
+    constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, InputIt first, InputIt last)
+    {
+        const auto insert_position = pos - cbegin();
+
+        if (first == last) {
+            return iterator(data_ + insert_position);
+        }
+
+        const auto count = last - first;
+        const auto new_size = size_ + count;
+
+        if (new_size > capacity_) {
+            std::size_t new_capacity = new_size;
+            T* new_data = std::allocator_traits<A>::allocate(allocator_, new_capacity);
+
+            // Move elements [begin, pos)
+            move_range(data_, data_ + insert_position, new_data);
+            // Move elements [pos, end)
+            // Elements are move constructed in new location, so this is ok
+            move_range_backwards(data_ + insert_position, data_ + size_, new_data + new_size);
+            // Copy data from input iterator range to new location
+            copy_range(first, last, new_data + insert_position);
+
+            // Clear old memory
+            destroy_range(data_, data_ + size_);
+            std::allocator_traits<A>::deallocate(allocator_, data_, capacity_);
+
+            data_ = new_data;
+            capacity_ = new_capacity;
+            size_ = new_size;
+        } else {
+            // Move last count elements to uninitialized memory
+            // Backwards because this way arguments are easier to understand
+            // TODO: There should be better way than static_cast<difference_type>(count) everywhere
+            move_range_backwards(
+                data_ + size_ - std::min(cend() - pos, static_cast<difference_type>(count)),
+                data_ + size_,
+                data_ + size_ + count
+            );
+            // Move others to the end of array
+            // Assignment because destructors were not called for moved-out objects
+            // Backwards because input and output ranges can overlap
+            move_assign_range_backwards(
+                data_ + insert_position,
+                data_ + size_ - std::min(cend() - pos, static_cast<difference_type>(count)),
+                data_ + size_
+            );
+
+            // Some of new elements copy constructed in uninitialized memory
+            // Didn't work without explicit <InputIt, T*>
+            // Probably bacause it cannot deduce result type of first + std::min(cend() - pos, static_cast<difference_type>(count))
+            // Would by nice to restrict InputIt to concept that has operator+ with int
+            copy_range<InputIt, T*>(
+                first + std::min(cend() - pos, static_cast<difference_type>(count)),
+                last,
+                data_ + size_
+            );
+
+            // Some are copy assigned to moved-from objects in already occupied memory
+            copy_assign_range_to_range<InputIt, T*>(
+                first,
+                first + std::min(cend() - pos, static_cast<difference_type>(count)),
+                data_ + insert_position
             );
 
             size_ = new_size;
@@ -796,10 +873,11 @@ namespace my
     }
 
     template <typename T, typename A>
-    constexpr void vector<T, A>::copy_range(pointer source_begin, pointer source_end, pointer destination_begin)
+    template <typename InputIt, typename OutputIt>
+    constexpr void vector<T, A>::copy_range(InputIt source_begin, InputIt source_end, OutputIt destination_begin)
     {
         for (; source_begin != source_end; ++source_begin, ++destination_begin) {
-            std::allocator_traits<A>::construct(allocator_, destination_begin, *source_begin);
+            std::allocator_traits<A>::construct(allocator_, std::to_address(destination_begin), *source_begin);
         }
     }
 
@@ -838,6 +916,15 @@ namespace my
     {
         for (; begin != end; ++begin) {
             *begin = value;
+        }
+    }
+
+    template <typename T, typename A>
+    template <typename InputIt, typename OutputIt>
+    constexpr void vector<T, A>::copy_assign_range_to_range(InputIt source_begin, InputIt source_end, OutputIt destination_begin)
+    {
+        for (; source_begin != source_end; ++source_begin, ++destination_begin) {
+            *destination_begin = *source_begin;
         }
     }
 

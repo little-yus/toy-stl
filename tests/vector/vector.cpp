@@ -5,6 +5,32 @@
 #include <ranges>
 #include <memory_resource>
 
+#include <sstream>
+
+namespace doctest
+{
+template <typename T>
+struct StringMaker<my::vector<T>>
+{
+    static String convert(const my::vector<T>& v) {
+        std::ostringstream oss;
+
+        oss << "[";
+
+        if (!v.empty()) { // !v.empty() does not work!!??
+            oss << v.front();
+            for(auto it = v.cbegin() + 1; it != v.cend(); ++it) {
+                oss << ", " << *it;
+            }
+        }
+        
+        oss << "]";
+
+        return oss.str().c_str();
+    }
+};
+}
+
 TEST_CASE("Default constructor") {
     my::vector<int> vec;
     
@@ -882,6 +908,53 @@ TEST_CASE("Inserting copies") {
         my::vector<int> a = { 1, 2, 3, 4 };
 
         a.insert(a.cbegin() + 2, 3, 123);
+
+        CHECK(a == my::vector { 1, 2, 123, 123, 123, 3, 4 });
+    }
+}
+
+TEST_CASE("Inserting range") {
+    SUBCASE("Inserting empty range does nothing") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 4, 5, 6 };
+        
+        a.insert(a.cbegin(), b.cbegin(), b.cbegin());
+        a.insert(a.cend(), b.cend(), b.cend());
+
+        CHECK(a == my::vector { 1, 2, 3 });
+    }
+
+    SUBCASE("Inserting before begin and end has the same effect for empty vector") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b;
+        my::vector<int> c;
+
+        b.insert(b.cbegin(), a.cbegin(), a.cbegin());
+        c.insert(c.cend(), a.cbegin(), a.cbegin());
+
+        CHECK(b == c);
+        CHECK(c == my::vector<int>{ });
+    }
+
+    SUBCASE("Inserting before the end has is the same as push back") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 1, 2, 3 };
+        my::vector<int> c = { 4, 5, 6 };
+
+        a.insert(a.cend(), c.cbegin(), c.cend());
+        b.push_back(c[0]);
+        b.push_back(c[1]);
+        b.push_back(c[2]);
+
+        CHECK(a == b);
+        CHECK(a == my::vector { 1, 2, 3, 4, 5, 6 });
+    }
+
+    SUBCASE("Insertion moves elements after insert position forward") {
+        my::vector<int> a = { 1, 2, 3, 4 };
+        my::vector<int> b = { 123, 123, 123 };
+
+        a.insert(a.cbegin() + 2, b.cbegin(), b.cend());
 
         CHECK(a == my::vector { 1, 2, 123, 123, 123, 3, 4 });
     }
