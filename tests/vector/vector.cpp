@@ -929,11 +929,11 @@ TEST_CASE("Inserting range") {
         my::vector<int> b;
         my::vector<int> c;
 
-        b.insert(b.cbegin(), a.cbegin(), a.cbegin());
-        c.insert(c.cend(), a.cbegin(), a.cbegin());
+        b.insert(b.cbegin(), a.cbegin(), a.cend());
+        c.insert(c.cend(), a.cbegin(), a.cend());
 
         CHECK(b == c);
-        CHECK(c == my::vector<int>{ });
+        CHECK(c == a);
     }
 
     SUBCASE("Inserting before the end has is the same as push back") {
@@ -955,6 +955,50 @@ TEST_CASE("Inserting range") {
         my::vector<int> b = { 123, 123, 123 };
 
         a.insert(a.cbegin() + 2, b.cbegin(), b.cend());
+
+        CHECK(a == my::vector { 1, 2, 123, 123, 123, 3, 4 });
+    }
+}
+
+TEST_CASE("Inserting initializer list") {
+    SUBCASE("Inserting empty initializer list does nothing") {
+        my::vector<int> a = { 1, 2, 3 };
+        
+        a.insert(a.cbegin(), {});
+        a.insert(a.cend(), {});
+        a.insert(a.cbegin() + 1, {});
+
+        CHECK(a == my::vector { 1, 2, 3 });
+    }
+
+    SUBCASE("Inserting before begin and end has the same effect for empty vector") {
+        my::vector<int> a;
+        my::vector<int> b;
+
+        a.insert(a.cbegin(), { 1, 2, 3 });
+        b.insert(b.cend(), { 1, 2, 3 });
+
+        CHECK(a == b);
+        CHECK(b == my::vector<int>{ 1, 2, 3 });
+    }
+
+    SUBCASE("Inserting before the end has is the same as push back") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 1, 2, 3 };
+
+        a.insert(a.cend(), { 4, 5, 6 });
+        b.push_back(4);
+        b.push_back(5);
+        b.push_back(6);
+
+        CHECK(a == b);
+        CHECK(a == my::vector { 1, 2, 3, 4, 5, 6 });
+    }
+
+    SUBCASE("Insertion moves elements after insert position forward") {
+        my::vector<int> a = { 1, 2, 3, 4 };
+
+        a.insert(a.cbegin() + 2, { 123, 123, 123 });
 
         CHECK(a == my::vector { 1, 2, 123, 123, 123, 3, 4 });
     }

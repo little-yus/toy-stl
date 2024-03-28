@@ -92,7 +92,7 @@ namespace my
         constexpr iterator insert(const_iterator pos, size_type count, const T& value);
         template <std::random_access_iterator InputIt>
         constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
-        // constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
+        constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
         template <typename ... Args>
         constexpr iterator emplace(const_iterator pos, Args&& ... args);
 
@@ -531,7 +531,7 @@ namespace my
             return iterator(data_ + insert_position);
         }
 
-        const auto count = last - first;
+        const auto count = last - first; // FIXME: Does not work for some types of iterators
         const auto new_size = size_ + count;
 
         if (new_size > capacity_) {
@@ -592,6 +592,12 @@ namespace my
         }
 
         return iterator(data_ + insert_position);
+    }
+
+    template <typename T, typename A>
+    constexpr vector<T, A>::iterator vector<T, A>::insert(const_iterator pos, std::initializer_list<T> init_list)
+    {
+        return insert(pos, std::begin(init_list), std::end(init_list));
     }
 
     template <typename T, typename A>
