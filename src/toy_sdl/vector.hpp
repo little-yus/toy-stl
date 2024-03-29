@@ -93,6 +93,7 @@ namespace my
         template <std::random_access_iterator InputIt>
         constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
         constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
+        constexpr iterator erase(const_iterator pos);
         template <typename ... Args>
         constexpr iterator emplace(const_iterator pos, Args&& ... args);
 
@@ -137,6 +138,7 @@ namespace my
         template <typename InputIt, typename OutputIt>
         constexpr void copy_assign_range_to_range(InputIt source_begin, InputIt source_end, OutputIt destination_begin);
         constexpr void move_assign_range_backwards(pointer source_begin, pointer source_end, pointer destination_end);
+        constexpr void move_assign_range(pointer source_begin, pointer source_end, pointer destination_begin);
 
         A allocator_ { };
         size_type size_ {0};
@@ -601,6 +603,23 @@ namespace my
     }
 
     template <typename T, typename A>
+    constexpr vector<T, A>::iterator vector<T, A>::erase(const_iterator pos)
+    {
+        if (empty()) {
+            return end();
+        } else {
+            const auto erase_position = pos - cbegin();
+        
+            move_assign_range(data_ + erase_position + 1, data_ + size_, data_ + erase_position);
+            std::allocator_traits<A>::destroy(allocator_, data_ + size_ - 1);
+
+            --size_;
+
+            return iterator(data_ + erase_position);
+        }
+    }
+
+    template <typename T, typename A>
     template <typename ... Args>
     constexpr vector<T, A>::iterator vector<T, A>::emplace(const_iterator pos, Args&& ... args)
     {
@@ -942,6 +961,14 @@ namespace my
             --destination_end;
 
             *destination_end = std::move(*source_end);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr void vector<T, A>::move_assign_range(pointer source_begin, pointer source_end, pointer destination_begin)
+    {
+        for (; source_begin != source_end; ++source_begin, ++destination_begin) {
+            *destination_begin = std::move(*source_begin);
         }
     }
 }

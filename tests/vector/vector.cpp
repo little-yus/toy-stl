@@ -1004,6 +1004,37 @@ TEST_CASE("Inserting initializer list") {
     }
 }
 
+TEST_CASE("Erasing single element") {
+    SUBCASE("Erasing does nothing if vector is empty") {
+        my::vector<int> vec = { };
+        
+        vec.erase(vec.cbegin());
+        vec.erase(vec.cend());
+
+        CHECK(vec.empty());
+    }
+
+    SUBCASE("Erasing every element leaves empty vector") {
+        my::vector<int> vec = { 1, 2, 3 };
+
+        vec.erase(vec.cbegin());
+        vec.erase(vec.cbegin());
+        vec.erase(vec.cbegin());
+
+        CHECK(vec.empty());
+    }
+
+    SUBCASE("Erasing element reduces size") {
+        my::vector<int> vec = { 1, 2, 3 };
+
+        const auto size_before = vec.size();
+        vec.erase(vec.cbegin());
+        const auto size_after = vec.size();
+
+        CHECK(size_after == size_before - 1);
+    }
+}
+
 // Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;
