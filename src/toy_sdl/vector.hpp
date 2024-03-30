@@ -94,6 +94,7 @@ namespace my
         constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
         constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
         constexpr iterator erase(const_iterator pos);
+        constexpr iterator erase(const_iterator first, const_iterator last);
         template <typename ... Args>
         constexpr iterator emplace(const_iterator pos, Args&& ... args);
 
@@ -616,6 +617,28 @@ namespace my
             --size_;
 
             return iterator(data_ + erase_position);
+        }
+    }
+
+    template <typename T, typename A>
+    constexpr vector<T, A>::iterator vector<T, A>::erase(const_iterator first, const_iterator last)
+    {
+        if (first == last) {
+            return iterator(data_ + (last - cbegin()));
+        } else {
+            const auto erase_range_size = last - first;
+
+            move_assign_range(
+                data_ + (last - cbegin()),
+                data_ + size_,
+                data_ + (first - cbegin())
+            );
+
+            destroy_range(data_ + size_ - erase_range_size, data_ + size_);
+
+            size_ -= erase_range_size;
+
+            iterator(data_ + (first - cbegin()));
         }
     }
 

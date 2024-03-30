@@ -1035,6 +1035,66 @@ TEST_CASE("Erasing single element") {
     }
 }
 
+TEST_CASE("Erase iterator range") {
+    SUBCASE("Erasing empty range does nothing") {
+        my::vector<int> vec = { 1, 2, 3 };
+
+        vec.erase(vec.cbegin(), vec.cbegin());
+        vec.erase(vec.cend(), vec.cend());
+
+        CHECK(vec == my::vector<int> { 1, 2, 3 });
+    }
+
+    SUBCASE("Erasing from empty vector does nothing") {
+        my::vector<int> vec = { };
+
+        vec.erase(vec.cbegin(), vec.cbegin());
+        vec.erase(vec.cend(), vec.cend());
+
+        CHECK(vec == my::vector<int> { });
+    }
+
+    SUBCASE("Erasing all elements results in empty vector") {
+        my::vector<int> vec = { 1, 2, 3 };
+
+        vec.erase(vec.cbegin(), vec.cend());
+
+        CHECK(vec == my::vector<int> { });
+    }
+
+    SUBCASE("Erasing range of size 1 is the same as erasing single element") {
+        my::vector<int> a = { 1, 2, 3 };
+        my::vector<int> b = { 1, 2, 3 };
+
+        a.erase(a.cbegin() + 1, a.cbegin() + 2);
+        b.erase(b.cbegin() + 1);
+
+        CHECK(a == b);
+    }
+
+    SUBCASE("Erasing range actually removes elements") {
+        my::vector<int> vec = { 1, 2, 3, 4, 5, 6 };
+
+        vec.erase(vec.cbegin() + 2, vec.cbegin() + 4);
+
+        CHECK(vec == my::vector<int> { 1, 2, 5, 6 });
+    }
+
+    SUBCASE("Erasing range reduces size") {
+        my::vector<int> vec = { 1, 2, 3, 4, 5, 6 };
+
+        const std::size_t range_size = 3;
+        auto range_begin = vec.cbegin() + 2;
+        auto range_end = range_begin + range_size;
+
+        const auto size_before = vec.size();
+        vec.erase(range_begin, range_end);
+        const auto size_after = vec.size();
+
+        CHECK(size_after == size_before - range_size);
+    }
+}
+
 // Ordinary iterator
 TEST_CASE("Forward iteration") {
     my::vector<int> vec;
