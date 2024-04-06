@@ -8,6 +8,7 @@ target_include_directories(toy_stl_lib INTERFACE src)
 add_executable(toy_stl_test
     tests/main.cpp
     tests/vector/vector.cpp
+    tests/deque/constructors.cpp
 )
 
 find_package(doctest CONFIG REQUIRED)
