@@ -2,6 +2,8 @@
 #define TOY_SDL_DEQUE_HPP
 
 #include <memory>
+#include <cmath>
+#include <cassert>
 
 namespace my
 {
@@ -11,7 +13,7 @@ namespace my
         // Should work like clang strategy
         // When sizeof(value_type) < 256 you get maximum number of elements you can fit in 4096 bytes
         // Otherwise you always get 16 elements
-        return std::max(4096 / sizeof(value_type), 16);
+        return std::max(4096 / sizeof(value_type), std::size_t{ 16 });
     }
 
     template <typename T, typename Allocator = std::allocator<T>>
@@ -200,6 +202,8 @@ namespace my
 
         begin_index = new_begin_index;
         ++elements_count;
+
+        return blocks[new_begin_block][new_begin_offset];
     }
 
     template <typename T, typename Allocator>
@@ -209,7 +213,7 @@ namespace my
         if (blocks_count == 0) {
             new_blocks_count = 2; // Minimum 2 blocks, number is arbitrary
         } else {
-            new_blocks_count *= 2;
+            new_blocks_count = blocks_count * 2;
         }
 
         auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
@@ -221,12 +225,15 @@ namespace my
         // Backwards because calculating d_first is more complicated than d_last
         std::copy_backward(blocks + begin_block_index, blocks + blocks_count, new_blocks + new_blocks_count);
 
+        auto new_begin_block_index = new_blocks_count - (blocks_count - begin_block_index);
+
+        // Don't forget to fill the gap between the two with nullptrs
+        std::fill(new_blocks + begin_block_index, new_blocks + new_begin_block_index, nullptr);
+
         // Clear block pointers array
         std::allocator_traits<block_allocator_type>::deallocate(block_allocator, blocks, blocks_count);
 
-        auto new_begin_block_index = new_blocks_count - (blocks_count - begin_block_index);
-
-        begin_index = calculate_element_index(new_begin_block_index, begin_block_offset);
+        begin_index = calculate_element_index(new_begin_block_index, begin_block_offset) % (new_blocks_count * block_size);
         blocks = new_blocks;
         blocks_count = new_blocks_count;
         // elements_count is not changed

@@ -9,6 +9,7 @@ add_executable(toy_stl_test
     tests/main.cpp
     tests/vector/vector.cpp
     tests/deque/constructors.cpp
+    tests/deque/modifiers/back.cpp
 )
 
 find_package(doctest CONFIG REQUIRED)
