@@ -68,6 +68,9 @@ namespace my
         constexpr reference front();
         constexpr const_reference front() const;
 
+        constexpr reference back();
+        constexpr const_reference back() const;
+
         // Capacity
         constexpr [[nodiscard]] bool empty() const noexcept;
         constexpr size_type size() const noexcept;
@@ -223,6 +226,27 @@ namespace my
         const auto block_index = calculate_block_index(begin_index);
         const auto block_offset = calculate_block_offset(begin_index);
         
+        return blocks[block_index][block_offset];
+    }
+
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::reference deque<T, Allocator>::back()
+    {
+        const auto end_index = calculate_end_index();
+        const auto block_index = calculate_block_index(end_index);
+        const auto block_offset = calculate_block_offset(end_index);
+
+        return blocks[block_index][block_offset];
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::back() const
+    {
+        const auto end_index = calculate_end_index();
+        const auto block_index = calculate_block_index(end_index);
+        const auto block_offset = calculate_block_offset(end_index);
+
         return blocks[block_index][block_offset];
     }
 

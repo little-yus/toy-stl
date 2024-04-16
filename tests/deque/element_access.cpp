@@ -66,4 +66,14 @@ TEST_SUITE("Deque element access") {
 
         CHECK(deq.front() == 1);
     }
+
+    TEST_CASE("Accessing back element should return correct value") {
+        my::deque<int> deq;
+
+        deq.push_back(1);
+        deq.push_back(2);
+        deq.push_back(3);
+
+        CHECK(deq.back() == 3);
+    }
 }
