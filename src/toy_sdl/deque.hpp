@@ -4,6 +4,7 @@
 #include <memory>
 #include <cmath>
 #include <cassert>
+#include <stdexcept>
 
 namespace my
 {
@@ -57,6 +58,13 @@ namespace my
         
         // ~deque();
 
+        // Element access
+        constexpr reference operator[](size_type index);
+        constexpr const_reference operator[](size_type index) const;
+
+        constexpr reference at(size_type index);
+        constexpr const_reference at(size_type index) const;
+
         // Capacity
         constexpr [[nodiscard]] bool empty() const noexcept;
         constexpr size_type size() const noexcept;
@@ -66,6 +74,8 @@ namespace my
         constexpr void push_back(T&& value);
         template <typename ... Args>
         constexpr reference emplace_back(Args&& ... args);
+        template <typename ... Args>
+        constexpr reference emplace_front(Args&& ... args);
 
     private:
         constexpr void grow_capacity();
@@ -151,6 +161,45 @@ namespace my
 
     }
 
+    // Element access
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::reference deque<T, Allocator>::operator[](size_type index)
+    {
+        const auto physical_index = calculate_next_index(begin_index, index);
+        const auto block_index = calculate_block_index(physical_index);
+        const auto block_offset = calculate_block_offset(physical_index);
+        return blocks[block_index][block_offset];
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::operator[](size_type index) const
+    {
+        const auto physical_index = calculate_next_index(begin_index, index);
+        const auto block_index = calculate_block_index(physical_index);
+        const auto block_offset = calculate_block_offset(physical_index);
+        return blocks[block_index][block_offset];
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::reference deque<T, Allocator>::at(size_type index)
+    {
+        if (index >= elements_count) {
+            throw std::out_of_range("Invalid element index");
+        }
+
+        return (*this)[index];
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::at(size_type index) const
+    {
+        if (index >= elements_count) {
+            throw std::out_of_range("Invalid element index");
+        }
+
+        return (*this)[index];
+    }
+
     // Capacity
     template <typename T, typename Allocator>
     constexpr [[nodiscard]] bool deque<T, Allocator>::empty() const noexcept
@@ -182,6 +231,34 @@ namespace my
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::emplace_back(Args&& ... args)
     {
         if (is_memory_filled() || adding_back_element_would_force_move()) {
+            grow_capacity();
+        }
+        
+        auto end_index = calculate_end_index();
+        auto end_block = calculate_block_index(end_index);
+        auto end_offset = calculate_block_offset(end_index);
+
+        // Allocate if we step into unallocated block
+        // Should not overwrite old blocks
+        if (blocks[end_index] == nullptr) {
+            blocks[end_index] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+        }
+        std::allocator_traits<element_allocator_type>::construct(
+            element_allocator,
+            blocks[end_block] + end_offset,
+            std::forward<Args>(args) ...
+        );
+
+        ++elements_count;
+
+        return blocks[end_block][end_offset];
+    }
+
+    template <typename T, typename Allocator>
+    template <typename ... Args>
+    constexpr deque<T, Allocator>::reference deque<T, Allocator>::emplace_front(Args&& ... args)
+    {
+        if (is_memory_filled() || adding_front_element_would_force_move()) {
             grow_capacity();
         }
         
@@ -273,7 +350,7 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::calculate_previous_index(size_type current_index, size_type offset) const
     {
-        assert((0 < offset && offset < capacity()) && "Invalid offset");
+        assert((0 <= offset && offset < capacity()) && "Invalid offset");
         // + capacity to not wrap around
         return (current_index + capacity() - offset) % capacity();
     }
@@ -281,16 +358,16 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::calculate_next_index(size_type current_index, size_type offset) const
     {
-        assert((0 < offset && offset < capacity()) && "Invalid offset");
+        assert((0 <= offset && offset < capacity()) && "Invalid offset");
         return (current_index + offset) % capacity();
     }
 
     template <typename T, typename Allocator>
-    constexpr bool deque<T, Allocator>::adding_back_element_would_force_move() const
+    constexpr bool deque<T, Allocator>::adding_front_element_would_force_move() const
     {
         // Blocks like this one are ok:
-        //      begin    end
-        //        v       v
+        //    begin      end
+        //      v         v
         // [ | |#|#|#|#|#| ]
 
         // But with block like this it is not possible to add new blocks without moving some elements
@@ -308,9 +385,15 @@ namespace my
     }
 
     template <typename T, typename Allocator>
-    constexpr bool deque<T, Allocator>::adding_front_element_would_force_move() const
+    constexpr bool deque<T, Allocator>::adding_back_element_would_force_move() const
     {
-        // TODO
+        auto end_index = calculate_end_index();
+        auto new_end_index = calculate_next_index(end_index);
+
+        auto new_end_block = calculate_block_index(new_end_index);
+        auto begin_block = calculate_block_index(begin_index);
+
+        return (new_end_index < begin_index) && (new_end_block == begin_block);
     }
 
     template <typename T, typename Allocator>
