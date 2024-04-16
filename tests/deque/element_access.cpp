@@ -56,4 +56,14 @@ TEST_SUITE("Deque element access") {
             CHECK_THROWS_AS(deq.at(deq.size()), std::out_of_range);
         }
     }
+
+    TEST_CASE("Accessing front element should return correct value") {
+        my::deque<int> deq;
+
+        deq.push_back(1);
+        deq.push_back(2);
+        deq.push_back(3);
+
+        CHECK(deq.front() == 1);
+    }
 }
