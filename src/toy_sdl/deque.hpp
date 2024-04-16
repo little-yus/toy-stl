@@ -74,6 +74,9 @@ namespace my
         constexpr void push_back(T&& value);
         template <typename ... Args>
         constexpr reference emplace_back(Args&& ... args);
+
+        constexpr void push_front(const T& value);
+        constexpr void push_front(T&& value);
         template <typename ... Args>
         constexpr reference emplace_front(Args&& ... args);
 
@@ -252,6 +255,18 @@ namespace my
         ++elements_count;
 
         return blocks[end_block][end_offset];
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::push_front(const T& value)
+    {
+        emplace_front(value);
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::push_front(T&& value)
+    {
+        emplace_front(std::move(value));
     }
 
     template <typename T, typename Allocator>
