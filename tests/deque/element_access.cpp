@@ -41,6 +41,7 @@ TEST_SUITE("Deque element access") {
     TEST_CASE("Trying to access out of range using at should throw exception") {
         SUBCASE("Empty deque") {
             my::deque<int> deq;
+            REQUIRE(deq.empty());
 
             CHECK_THROWS_AS(deq.at(0), std::out_of_range);
         }

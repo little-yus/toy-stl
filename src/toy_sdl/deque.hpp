@@ -76,6 +76,8 @@ namespace my
         constexpr size_type size() const noexcept;
 
         // Modifiers
+        constexpr void clear() noexcept;
+
         constexpr void push_back(const T& value);
         constexpr void push_back(T&& value);
         template <typename ... Args>
@@ -269,6 +271,16 @@ namespace my
 
 
     // Modifiers
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::clear() noexcept
+    {
+        // Could be optimized
+        while (!empty()) {
+            pop_back();
+        }
+    }
+
+
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::push_back(const T& value)
     {

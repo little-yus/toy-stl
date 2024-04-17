@@ -368,4 +368,25 @@ TEST_SUITE("Deque modifiers") {
         CHECK(deq[0] == 2);
         CHECK(deq[1] == 3);
     }
+
+    TEST_CASE("Clear should remove all elements") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.clear();
+
+            CHECK(deq.empty());
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+            
+            deq.clear();
+
+            CHECK(deq.empty());
+        }
+    }
 }
