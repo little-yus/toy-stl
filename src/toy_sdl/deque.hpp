@@ -56,7 +56,7 @@ namespace my
         // constexpr deque(deque&& other, const Allocator& allocator);
         // constexpr deque& operator=(deque&& other);
         
-        // ~deque();
+        constexpr ~deque();
 
         // Element access
         constexpr reference operator[](size_type index);
@@ -110,6 +110,10 @@ namespace my
 
         constexpr bool adding_back_element_would_force_move() const;
         constexpr bool adding_front_element_would_force_move() const;
+
+        constexpr void destroy_all_elements();
+        constexpr void deallocate_all_blocks();
+        constexpr void deallocate_blocks_array();
 
         constexpr static size_type block_size = calculate_block_size<T, size_type>(); // Size as number of elements not bytes
         // Chunk of memory with size = block_size
@@ -174,6 +178,17 @@ namespace my
     {
 
     }
+
+
+    // Rule of 5
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::~deque()
+    {
+        destroy_all_elements();
+        deallocate_all_blocks();
+        deallocate_blocks_array();
+    }
+
 
     // Element access
     template <typename T, typename Allocator>
@@ -274,10 +289,9 @@ namespace my
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::clear() noexcept
     {
-        // Could be optimized
-        while (!empty()) {
-            pop_back();
-        }
+        destroy_all_elements();
+        // Begin index remains the same to utilize memory of already allocated blocks
+        elements_count = 0;
     }
 
 
@@ -370,8 +384,8 @@ namespace my
         assert((elements_count > 0) && "Trying to remove last element of empty deque is undefined behavior");
 
         const auto last_element_index = calculate_previous_index(calculate_end_index());
-        auto last_element_block = calculate_block_index(last_element_index);
-        auto last_element_offset = calculate_block_offset(last_element_index);
+        const auto last_element_block = calculate_block_index(last_element_index);
+        const auto last_element_offset = calculate_block_offset(last_element_index);
 
         std::allocator_traits<element_allocator_type>::destroy(
             element_allocator,
@@ -517,6 +531,40 @@ namespace my
     constexpr bool deque<T, Allocator>::is_memory_filled() const
     {
         return elements_count == capacity();
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::destroy_all_elements()
+    {
+        auto current_index = begin_index;
+
+        for (size_type i = 0; i < elements_count; ++i) {
+            const auto current_block_index = calculate_block_index(current_index);
+            const auto current_block_offset = calculate_block_offset(current_index);
+
+            std::allocator_traits<element_allocator_type>::destroy(
+                element_allocator,
+                blocks[current_block_index] + current_block_offset
+            );
+
+            current_index = calculate_next_index(current_index);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::deallocate_all_blocks()
+    {
+        for (size_type i = 0; i < blocks_count; ++i) {
+            if (blocks[i] != nullptr) {
+                std::allocator_traits<element_allocator_type>::deallocate(element_allocator, blocks[i], block_size);
+            }
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::deallocate_blocks_array()
+    {
+        std::allocator_traits<block_allocator_type>::deallocate(block_allocator, blocks, blocks_count);
     }
 }
 
