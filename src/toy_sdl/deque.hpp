@@ -86,6 +86,9 @@ namespace my
         template <typename ... Args>
         constexpr reference emplace_front(Args&& ... args);
 
+        constexpr void pop_back();
+        constexpr void pop_front();
+
     private:
         constexpr void grow_capacity();
         constexpr size_type capacity() const;
@@ -233,9 +236,9 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::back()
     {
-        const auto end_index = calculate_end_index();
-        const auto block_index = calculate_block_index(end_index);
-        const auto block_offset = calculate_block_offset(end_index);
+        const auto last_element_index = calculate_previous_index(calculate_end_index());
+        auto block_index = calculate_block_index(last_element_index);
+        auto block_offset = calculate_block_offset(last_element_index);
 
         return blocks[block_index][block_offset];
     }
@@ -243,13 +246,12 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::back() const
     {
-        const auto end_index = calculate_end_index();
-        const auto block_index = calculate_block_index(end_index);
-        const auto block_offset = calculate_block_offset(end_index);
+        const auto last_element_index = calculate_previous_index(calculate_end_index());
+        auto block_index = calculate_block_index(last_element_index);
+        auto block_offset = calculate_block_offset(last_element_index);
 
         return blocks[block_index][block_offset];
     }
-
 
 
     // Capacity
@@ -264,6 +266,7 @@ namespace my
     {
         return elements_count;
     }
+
 
     // Modifiers
     template <typename T, typename Allocator>
@@ -306,6 +309,7 @@ namespace my
         return blocks[end_block][end_offset];
     }
 
+
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::push_front(const T& value)
     {
@@ -347,6 +351,43 @@ namespace my
         return blocks[new_begin_block][new_begin_offset];
     }
 
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::pop_back()
+    {
+        assert((elements_count > 0) && "Trying to remove last element of empty deque is undefined behavior");
+
+        const auto last_element_index = calculate_previous_index(calculate_end_index());
+        auto last_element_block = calculate_block_index(last_element_index);
+        auto last_element_offset = calculate_block_offset(last_element_index);
+
+        std::allocator_traits<element_allocator_type>::destroy(
+            element_allocator,
+            blocks[last_element_block] + last_element_offset
+        );
+
+        --elements_count;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::pop_front()
+    {
+        assert((elements_count > 0) && "Trying to remove first element of empty deque is undefined behavior");
+
+        auto begin_block = calculate_block_index(begin_index);
+        auto begin_offset = calculate_block_offset(begin_index);
+
+        std::allocator_traits<element_allocator_type>::destroy(
+            element_allocator,
+            blocks[begin_block] + begin_offset
+        );
+
+        begin_index = calculate_next_index(begin_index);
+        --elements_count;
+    }
+
+
+    // Implementation details
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::grow_capacity()
     {

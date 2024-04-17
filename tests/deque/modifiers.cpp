@@ -252,4 +252,120 @@ TEST_SUITE("Deque modifiers") {
             CHECK(d[2] == 1);
         }
     }
+
+    TEST_CASE("Pop back should decrease size") {
+        SUBCASE("Removing one element") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            const auto size_before = deq.size();
+            deq.pop_back();
+            const auto size_after = deq.size();
+
+            CHECK(size_after < size_before);
+        }
+
+        SUBCASE("Removing multiple elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+            deq.push_back(4);
+            deq.push_back(5);
+
+            const auto size_before = deq.size();
+            deq.pop_back();
+            deq.pop_back();
+            deq.pop_back();
+            const auto size_after = deq.size();
+
+            CHECK(size_after == size_before - 3);
+        }
+
+        SUBCASE("Removing all elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            const auto number_of_elements = deq.size();
+            for (std::size_t i = 0; i < number_of_elements; ++i) {
+                deq.pop_back();
+            }
+
+            CHECK(deq.empty());
+        }
+    }
+
+    TEST_CASE("Pop back should remove only back element") {
+        my::deque<int> deq;
+        deq.push_back(1);
+        deq.push_back(2);
+        deq.push_back(3);
+
+        deq.pop_back();
+
+        CHECK(deq[0] == 1);
+        CHECK(deq[1] == 2);
+    }
+
+    TEST_CASE("Pop front should decrease size") {
+        SUBCASE("Removing one element") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            const auto size_before = deq.size();
+            deq.pop_front();
+            const auto size_after = deq.size();
+
+            CHECK(size_after < size_before);
+        }
+
+        SUBCASE("Removing multiple elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+            deq.push_back(4);
+            deq.push_back(5);
+
+            const auto size_before = deq.size();
+            deq.pop_front();
+            deq.pop_front();
+            deq.pop_front();
+            const auto size_after = deq.size();
+
+            CHECK(size_after == size_before - 3);
+        }
+
+        SUBCASE("Removing all elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            const auto number_of_elements = deq.size();
+            for (std::size_t i = 0; i < number_of_elements; ++i) {
+                deq.pop_front();
+            }
+
+            CHECK(deq.empty());
+        }
+    }
+
+    TEST_CASE("Pop front should remove only front element") {
+        my::deque<int> deq;
+        deq.push_back(1);
+        deq.push_back(2);
+        deq.push_back(3);
+
+        deq.pop_front();
+
+        CHECK(deq[0] == 2);
+        CHECK(deq[1] == 3);
+    }
 }
