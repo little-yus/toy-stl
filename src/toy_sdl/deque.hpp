@@ -48,7 +48,7 @@ namespace my
         constexpr deque(std::initializer_list<T> init_list, const Allocator& allocator = Allocator());
 
         // Rule of 5
-        // constexpr deque(const deque& other);
+        constexpr deque(const deque& other);
         // constexpr deque(const deque& other, const Allocator& allocator);
         // constexpr deque& operator=(deque other);
 
@@ -57,6 +57,9 @@ namespace my
         // constexpr deque& operator=(deque&& other);
         
         constexpr ~deque();
+
+        // Other
+        constexpr allocator_type get_allocator() const noexcept;
 
         // Element access
         constexpr reference operator[](size_type index);
@@ -182,11 +185,51 @@ namespace my
 
     // Rule of 5
     template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::deque(const deque& other) :
+        element_allocator(std::allocator_traits<element_allocator_type>::select_on_container_copy_construction(other.get_allocator())),
+        block_allocator(std::allocator_traits<element_allocator_type>::select_on_container_copy_construction(other.get_allocator())),
+        blocks(nullptr),
+        blocks_count(0),
+        begin_index(0),
+        elements_count(other.elements_count)
+    {
+        blocks_count = (elements_count + block_size - 1) / block_size; // Ceil division
+        
+        if (blocks_count > 0) {
+            // Allocate just enough blocks to store all elements
+            blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, blocks_count);
+            for (size_type i = 0; i < blocks_count; ++i) {
+                blocks[i] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+            }
+
+            // Copy all elements
+            for (size_type i = 0; i < elements_count; ++i) {
+                const auto block_index = calculate_block_index(i);
+                const auto block_offset = calculate_block_offset(i);
+
+                std::allocator_traits<element_allocator_type>::construct(
+                    element_allocator,
+                    blocks[block_index] + block_offset,
+                    other[i]
+                );
+            }
+        }
+    }
+
+    template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::~deque()
     {
         destroy_all_elements();
         deallocate_all_blocks();
         deallocate_blocks_array();
+    }
+
+
+    // Other
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::allocator_type deque<T, Allocator>::get_allocator() const noexcept
+    {
+        return element_allocator;
     }
 
 
