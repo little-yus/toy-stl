@@ -50,7 +50,7 @@ namespace my
         // Rule of 5
         constexpr deque(const deque& other);
         // constexpr deque(const deque& other, const Allocator& allocator);
-        // constexpr deque& operator=(deque other);
+        constexpr deque& operator=(const deque& other);
 
         // constexpr deque(deque&& other);
         // constexpr deque(deque&& other, const Allocator& allocator);
@@ -93,6 +93,8 @@ namespace my
 
         constexpr void pop_back();
         constexpr void pop_front();
+
+        void swap(deque& other) noexcept;
 
     private:
         constexpr void grow_capacity();
@@ -214,6 +216,15 @@ namespace my
                 );
             }
         }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>& deque<T, Allocator>::operator=(const deque& other)
+    {
+        // Can be optimized
+        deque copy(other);
+        copy.swap(*this);
+        return *this;
     }
 
     template <typename T, typename Allocator>
@@ -453,6 +464,22 @@ namespace my
 
         begin_index = calculate_next_index(begin_index);
         --elements_count;
+    }
+
+    template <typename T, typename Allocator>
+    void deque<T, Allocator>::swap(deque& other) noexcept
+    {
+        using std::swap;
+
+        if constexpr (std::allocator_traits<allocator_type>::propagate_on_container_swap::value) {
+            std::swap(block_allocator, other.block_allocator);
+            std::swap(element_allocator, other.element_allocator);
+        }
+
+        std::swap(blocks, other.blocks);
+        std::swap(blocks_count, other.blocks_count);
+        std::swap(begin_index, other.begin_index);
+        std::swap(elements_count, other.elements_count);
     }
 
 
