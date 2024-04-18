@@ -47,14 +47,15 @@ namespace my
         constexpr deque(InputIt first, InputIt last, const Allocator& allocator = Allocator());
         constexpr deque(std::initializer_list<T> init_list, const Allocator& allocator = Allocator());
 
+        // constexpr deque(const deque& other, const Allocator& allocator);
+        // constexpr deque(deque&& other, const Allocator& allocator);
+
         // Rule of 5
         constexpr deque(const deque& other);
-        // constexpr deque(const deque& other, const Allocator& allocator);
         constexpr deque& operator=(const deque& other);
 
-        // constexpr deque(deque&& other);
-        // constexpr deque(deque&& other, const Allocator& allocator);
-        // constexpr deque& operator=(deque&& other);
+        constexpr deque(deque&& other);
+        constexpr deque& operator=(deque&& other);
         
         constexpr ~deque();
 
@@ -224,6 +225,28 @@ namespace my
         // Can be optimized
         deque copy(other);
         copy.swap(*this);
+        return *this;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::deque(deque&& other) :
+        element_allocator(std::move(other.element_allocator)),
+        block_allocator(std::move(other.block_allocator)),
+        blocks(other.blocks),
+        blocks_count(other.blocks_count),
+        begin_index(other.begin_index),
+        elements_count(other.elements_count)
+    {
+        other.blocks = nullptr;
+        other.blocks_count = 0;
+        other.begin_index = 0;
+        other.elements_count = 0;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>& deque<T, Allocator>::operator=(deque&& other)
+    {
+        this->swap(other);
         return *this;
     }
 
