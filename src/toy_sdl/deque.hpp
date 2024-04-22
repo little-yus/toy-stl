@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <stdexcept>
+#include <algorithm>
 
 namespace my
 {
@@ -15,6 +16,12 @@ namespace my
         // When sizeof(value_type) < 256 you get maximum number of elements you can fit in 4096 bytes
         // Otherwise you always get 16 elements
         return std::max(4096 / sizeof(value_type), std::size_t{ 16 });
+    }
+
+    template <typename T>
+    constexpr T ceil_division(T a, T b)
+    {
+        return (a + b - 1) / b;
     }
 
     template <typename T, typename Allocator = std::allocator<T>>
@@ -95,12 +102,27 @@ namespace my
         constexpr void pop_back();
         constexpr void pop_front();
 
-        void swap(deque& other) noexcept;
+        constexpr void resize(size_type new_size);
+        constexpr void resize(size_type new_size, const value_type& value);
+
+        constexpr void swap(deque& other) noexcept;
 
     private:
-        constexpr void grow_capacity();
-        constexpr size_type capacity() const;
+        // Implementation specific constants
+        constexpr static size_type block_size = calculate_block_size<T, size_type>(); // Size as number of elements not bytes
+        
+        // Implementation specific type aliases
+        // Chunk of memory with size = block_size
+        using block_type = value_type*;
 
+        using element_allocator_type = allocator_type;
+        using block_allocator_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<block_type>;
+
+        // Implementation specific member functions
+        constexpr void grow_capacity();
+        constexpr void grow_capacity_to_fit(size_type new_size);
+
+        constexpr size_type capacity() const;
         constexpr bool is_memory_filled() const;
 
         constexpr size_type calculate_end_index() const;
@@ -114,6 +136,8 @@ namespace my
         constexpr size_type calculate_previous_index(size_type current_index, size_type offset = 1) const;
         constexpr size_type calculate_next_index(size_type current_index, size_type offset = 1) const;
 
+        constexpr size_type calculate_free_back_elements_count() const;
+
         constexpr bool adding_back_element_would_force_move() const;
         constexpr bool adding_front_element_would_force_move() const;
 
@@ -121,13 +145,15 @@ namespace my
         constexpr void deallocate_all_blocks();
         constexpr void deallocate_blocks_array();
 
-        constexpr static size_type block_size = calculate_block_size<T, size_type>(); // Size as number of elements not bytes
-        // Chunk of memory with size = block_size
-        using block_type = value_type*;
+        constexpr void destroy_range(size_type range_begin, size_type range_size);
+        constexpr void default_construct_range(size_type range_begin, size_type range_size);
 
-        using element_allocator_type = allocator_type;
-        using block_allocator_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<block_type>;
+        constexpr void allocate_blocks(block_type* begin_block, block_type* end_block);
+        constexpr void allocate_blocks_if_not_allocated(block_type* begin_block, block_type* end_block);
 
+        constexpr bool all_blocks_are_allocated() const;
+
+        // Member variables
         element_allocator_type element_allocator { };
         block_allocator_type block_allocator { }; // Name is a bit confusing, because it allocated arrays of pointers to blocks and not actual blocks
         
@@ -490,7 +516,28 @@ namespace my
     }
 
     template <typename T, typename Allocator>
-    void deque<T, Allocator>::swap(deque& other) noexcept
+    constexpr void deque<T, Allocator>::resize(size_type new_size)
+    {
+        if (new_size <= size()) {
+            const auto number_of_elements_to_destroy = size() - new_size;
+            destroy_range(calculate_next_index(begin_index, new_size), number_of_elements_to_destroy);
+        } else {
+            const auto number_of_new_elements = new_size - size();
+            grow_capacity_to_fit(new_size);
+            default_construct_range(calculate_end_index(), number_of_new_elements);
+        }
+
+        elements_count = new_size;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::resize(size_type new_size, const value_type& value)
+    {
+
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::swap(deque& other) noexcept
     {
         using std::swap;
 
@@ -538,6 +585,65 @@ namespace my
         blocks = new_blocks;
         blocks_count = new_blocks_count;
         // elements_count is not changed
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::grow_capacity_to_fit(size_type new_size)
+    {
+        const auto new_elements_count = new_size - size();
+        const auto free_elements_count = calculate_free_back_elements_count();
+
+        if (new_elements_count <= free_elements_count) {
+            // No need to iterate all blocks, but i don't feel like calculating which ones are/aren't allocated
+            allocate_blocks_if_not_allocated(blocks, blocks + blocks_count);
+            return;
+        }
+
+        const auto extra_elements_count = new_elements_count - free_elements_count;
+        const auto extra_blocks_count = (extra_elements_count + block_size - 1) / block_size;
+        const auto new_blocks_count = blocks_count + extra_blocks_count;
+
+        auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
+        
+        auto begin_block_index = calculate_block_index(begin_index);
+        if (begin_index < calculate_end_index()) {
+            // Deque looks like this:
+            //    begin      end
+            //      v         v
+            // [ | |#|#|#|#|#| ]
+            const auto front_empty_blocks_count = begin_block_index;
+            const auto back_empty_blocks_count = blocks_count - ceil_division(calculate_end_index(), block_size);
+            const auto filled_blocks_count = blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
+
+            // Copy all blocks
+            std::copy(blocks, blocks + blocks_count, new_blocks);
+            allocate_blocks_if_not_allocated(new_blocks, new_blocks + front_empty_blocks_count);
+            allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + blocks_count);
+            allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+        } else {
+            // And here we deal with this case:
+            //       end    begin
+            //        v       v
+            // [#|#|#| | | | |#]
+            const auto back_blocks_count = blocks_count - begin_block_index;
+            const auto front_blocks_count = ceil_division(calculate_end_index(), block_size);
+            std::copy(blocks + begin_block_index, blocks + blocks_count, new_blocks);
+            std::copy(blocks, blocks + front_blocks_count, new_blocks + back_blocks_count);
+            std::copy(
+                blocks + front_blocks_count,
+                blocks + back_blocks_count,
+                new_blocks + back_blocks_count + front_blocks_count
+            ); // Copy free blocks, because they can be empty but allocated and we don't want to leak
+            allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + blocks_count);
+            allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+        }
+        deallocate_blocks_array();
+
+        begin_index = begin_index % block_size;
+        blocks = new_blocks;
+        blocks_count = new_blocks_count;
+
+        assert((all_blocks_are_allocated()) && "All blocks must be allocated. It should be safe to construct element in any block after call to this function");
     }
 
     template <typename T, typename Allocator>
@@ -595,8 +701,8 @@ namespace my
         // [ | |#|#|#|#|#| ]
 
         // But with block like this it is not possible to add new blocks without moving some elements
-        //     end      begin
-        //      v         v
+        //       end    begin
+        //        v       v
         // [#|#|#| | | | |#]
 
         auto new_begin_index = calculate_previous_index(begin_index);
@@ -606,6 +712,13 @@ namespace my
         auto end_block = calculate_block_index(end_index);
 
         return (new_begin_index > end_index) && (new_begin_block == end_block);
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::size_type deque<T, Allocator>::calculate_free_back_elements_count() const
+    {
+        const auto number_of_free_elements_in_first_block = calculate_block_offset(begin_index);
+        return capacity() - number_of_free_elements_in_first_block;
     }
 
     template <typename T, typename Allocator>
@@ -658,6 +771,65 @@ namespace my
     constexpr void deque<T, Allocator>::deallocate_blocks_array()
     {
         std::allocator_traits<block_allocator_type>::deallocate(block_allocator, blocks, blocks_count);
+    }
+
+    
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::destroy_range(size_type range_begin, size_type range_size)
+    {
+        for (size_type i = 0; i < range_size; ++i) {
+            auto current_block = calculate_block_index(range_begin);
+            auto current_offset = calculate_block_offset(range_begin);
+
+            std::allocator_traits<element_allocator_type>::destroy(
+                element_allocator,
+                blocks[current_block] + current_offset
+            );
+
+            range_begin = calculate_next_index(range_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::default_construct_range(size_type range_begin, size_type range_size)
+    {
+        // range_begin is the same type of index as begin_index
+        for (size_type i = 0; i < range_size; ++i) {
+            auto current_block = calculate_block_index(range_begin);
+            auto current_offset = calculate_block_offset(range_begin);
+
+            std::allocator_traits<element_allocator_type>::construct(
+                element_allocator,
+                blocks[current_block] + current_offset
+            );
+
+            range_begin = calculate_next_index(range_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::allocate_blocks(block_type* begin_block, block_type* end_block)
+    {
+        for (auto current_block = begin_block; current_block != end_block; ++current_block) {
+            assert((*current_block == nullptr) && "Block is already allocated. You should use this function only with ranges of not allocated blocks");
+            *current_block = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+        }
+    }
+    
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::allocate_blocks_if_not_allocated(block_type* begin_block, block_type* end_block)
+    {
+        for (auto current_block = begin_block; current_block != end_block; ++current_block) {
+            if (*current_block == nullptr) {
+                *current_block = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+            }
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr bool deque<T, Allocator>::all_blocks_are_allocated() const
+    {
+        return std::all_of(blocks, blocks + blocks_count, [](block_type block){ return block != nullptr; });
     }
 }
 

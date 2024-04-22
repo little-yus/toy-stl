@@ -389,4 +389,101 @@ TEST_SUITE("Deque modifiers") {
             CHECK(deq.empty());
         }
     }
+
+    TEST_CASE("Resize should correctly change size if needed") {
+        SUBCASE("Resize down should decrease size") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+            deq.push_back(4);
+            deq.push_back(5);
+
+            deq.resize(3);
+
+            CHECK(deq.size() == 3);
+        }
+
+        SUBCASE("Resize up should increase size") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            deq.resize(5);
+
+            CHECK(deq.size() == 5);
+        }
+
+        SUBCASE("Resize with same size should do nothing") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            const auto size_before = deq.size();
+            deq.resize(deq.size());
+            const auto size_after = deq.size();
+
+            CHECK(size_after == size_before);
+        }
+    }
+
+    TEST_CASE("Resize should not modify values of old elements") {
+        SUBCASE("Resize down should not modify remaining elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+            deq.push_back(4);
+            deq.push_back(5);
+
+            deq.resize(3);
+
+            CHECK(deq[0] == 1);
+            CHECK(deq[1] == 2);
+            CHECK(deq[2] == 3);
+        }
+
+        SUBCASE("Resize up should not modify old elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            deq.resize(5);
+
+            CHECK(deq[0] == 1);
+            CHECK(deq[1] == 2);
+            CHECK(deq[2] == 3);
+        }
+
+        SUBCASE("Resize with same size should do nothing") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            deq.resize(deq.size());
+
+            CHECK(deq[0] == 1);
+            CHECK(deq[1] == 2);
+            CHECK(deq[2] == 3);
+        }
+    }
+
+    TEST_CASE("Resize up should insert correct new values") {
+        SUBCASE("Simple resize should insert default constructed elements") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            deq.resize(6);
+
+            CHECK(deq[3] == 0);
+            CHECK(deq[4] == 0);
+            CHECK(deq[5] == 0);
+        }
+    }
 }
