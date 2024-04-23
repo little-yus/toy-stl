@@ -485,5 +485,18 @@ TEST_SUITE("Deque modifiers") {
             CHECK(deq[4] == 0);
             CHECK(deq[5] == 0);
         }
+
+        SUBCASE("Resize with parameter should insert copies of provided value") {
+            my::deque<int> deq;
+            deq.push_back(1);
+            deq.push_back(2);
+            deq.push_back(3);
+
+            deq.resize(6, 123);
+
+            CHECK(deq[3] == 123);
+            CHECK(deq[4] == 123);
+            CHECK(deq[5] == 123);
+        }
     }
 }

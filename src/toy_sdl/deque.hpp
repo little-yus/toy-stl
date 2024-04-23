@@ -147,6 +147,7 @@ namespace my
 
         constexpr void destroy_range(size_type range_begin, size_type range_size);
         constexpr void default_construct_range(size_type range_begin, size_type range_size);
+        constexpr void copy_construct_range_values(size_type range_begin, size_type range_size, const value_type& value);
 
         constexpr void allocate_blocks(block_type* begin_block, block_type* end_block);
         constexpr void allocate_blocks_if_not_allocated(block_type* begin_block, block_type* end_block);
@@ -533,7 +534,16 @@ namespace my
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::resize(size_type new_size, const value_type& value)
     {
+        if (new_size <= size()) {
+            const auto number_of_elements_to_destroy = size() - new_size;
+            destroy_range(calculate_next_index(begin_index, new_size), number_of_elements_to_destroy);
+        } else {
+            const auto number_of_new_elements = new_size - size();
+            grow_capacity_to_fit(new_size);
+            copy_construct_range_values(calculate_end_index(), number_of_new_elements, value);
+        }
 
+        elements_count = new_size;
     }
 
     template <typename T, typename Allocator>
@@ -801,6 +811,24 @@ namespace my
             std::allocator_traits<element_allocator_type>::construct(
                 element_allocator,
                 blocks[current_block] + current_offset
+            );
+
+            range_begin = calculate_next_index(range_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::copy_construct_range_values(size_type range_begin, size_type range_size, const value_type& value)
+    {
+        // range_begin is the same type of index as begin_index
+        for (size_type i = 0; i < range_size; ++i) {
+            auto current_block = calculate_block_index(range_begin);
+            auto current_offset = calculate_block_offset(range_begin);
+
+            std::allocator_traits<element_allocator_type>::construct(
+                element_allocator,
+                blocks[current_block] + current_offset,
+                value
             );
 
             range_begin = calculate_next_index(range_begin);
