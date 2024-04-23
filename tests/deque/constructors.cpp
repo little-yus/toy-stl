@@ -1,6 +1,8 @@
 #include "doctest/doctest.h"
 #include "toy_sdl/deque.hpp"
 
+#include <array>
+
 TEST_SUITE("Deque constructors") {
     TEST_CASE("Default constructor should create empty deque") {
         my::deque<int> d;
@@ -164,5 +166,77 @@ TEST_SUITE("Deque constructors") {
         CHECK(b[0] == 1);
         CHECK(b[1] == 2);
         CHECK(b[2] == 3);
+    }
+
+    TEST_CASE("Constructor with size should create correct deque") {
+        SUBCASE("New deque has correct size") {
+            my::deque<int> deq(5);
+
+            CHECK(deq.size() == 5);
+        }
+
+        SUBCASE("New deque has correct elements") {
+            my::deque<int> deq(5);
+
+            CHECK(deq[0] == 0);
+            CHECK(deq[1] == 0);
+            CHECK(deq[2] == 0);
+            CHECK(deq[3] == 0);
+            CHECK(deq[4] == 0);
+        }
+    }
+
+    TEST_CASE("Constructor with size and value should create correct deque") {
+        SUBCASE("New deque has correct size") {
+            my::deque<int> deq(5, 123);
+
+            CHECK(deq.size() == 5);
+        }
+
+        SUBCASE("New deque has correct elements") {
+            my::deque<int> deq(5, 123);
+
+            CHECK(deq[0] == 123);
+            CHECK(deq[1] == 123);
+            CHECK(deq[2] == 123);
+            CHECK(deq[3] == 123);
+            CHECK(deq[4] == 123);
+        }
+    }
+
+    TEST_CASE("Constructor with iterator pair should create correct deque") {
+        SUBCASE("Constructing from empty range") {
+            std::array<int, 3> arr = { 1, 2, 3 };
+
+            my::deque<int> deq(arr.begin(), arr.begin());
+
+            CHECK(deq.empty());
+        }
+
+        SUBCASE("Constructing from non-empty range") {
+            std::array<int, 3> arr = { 1, 2, 3 };
+
+            my::deque<int> deq(arr.begin(), arr.end());
+
+            CHECK(deq[0] == 1);
+            CHECK(deq[1] == 2);
+            CHECK(deq[2] == 3);
+        }
+    }
+
+    TEST_CASE("Constructor with initializer list should create correct deque") {
+        SUBCASE("Empty list") {
+            my::deque<int> deq({});
+
+            CHECK(deq.empty());
+        }
+
+        SUBCASE("Non-empty list") {
+            my::deque<int> deq({ 1, 2, 3 });
+
+            CHECK(deq[0] == 1);
+            CHECK(deq[1] == 2);
+            CHECK(deq[2] == 3);
+        }
     }
 }

@@ -50,7 +50,7 @@ namespace my
         constexpr explicit deque(const Allocator& allocator);
         constexpr deque(size_type count, const_reference value, const Allocator& allocator = Allocator());
         constexpr explicit deque(size_type count, const Allocator& allocator = Allocator());
-        template <typename InputIt>
+        template <std::input_iterator InputIt>
         constexpr deque(InputIt first, InputIt last, const Allocator& allocator = Allocator());
         constexpr deque(std::initializer_list<T> init_list, const Allocator& allocator = Allocator());
 
@@ -150,6 +150,7 @@ namespace my
         constexpr void copy_construct_range_values(size_type range_begin, size_type range_size, const value_type& value);
 
         constexpr void allocate_blocks(block_type* begin_block, block_type* end_block);
+        constexpr void allocate_blocks_unsafe(block_type* begin_block, block_type* end_block);
         constexpr void allocate_blocks_if_not_allocated(block_type* begin_block, block_type* end_block);
 
         constexpr bool all_blocks_are_allocated() const;
@@ -184,25 +185,26 @@ namespace my
 
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::deque(size_type count, const_reference value, const Allocator& allocator) :
-        element_allocator(allocator),
-        block_allocator(allocator)
+        deque(allocator)
     {
-        // TODO:
-        // resize(count, value);
+        resize(count, value);
     }
 
     template <typename T, typename Allocator>
-    constexpr deque<T, Allocator>::deque(size_type count, const Allocator& allocator)
+    constexpr deque<T, Allocator>::deque(size_type count, const Allocator& allocator) :
+        deque(allocator)
     {
-        // TODO:
-        // resize(count);
+        resize(count);
     }
 
     template <typename T, typename Allocator>
-    template <typename InputIt>
-    constexpr deque<T, Allocator>::deque(InputIt first, InputIt last, const Allocator& allocator)
+    template <std::input_iterator InputIt>
+    constexpr deque<T, Allocator>::deque(InputIt first, InputIt last, const Allocator& allocator) :
+        deque(allocator)
     {
-        // TODO:
+        for (; first != last; ++first) {
+            emplace_back(*first);
+        }
     }
 
     template <typename T, typename Allocator>
@@ -616,38 +618,42 @@ namespace my
         auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
         
         auto begin_block_index = calculate_block_index(begin_index);
-        if (begin_index < calculate_end_index()) {
-            // Deque looks like this:
-            //    begin      end
-            //      v         v
-            // [ | |#|#|#|#|#| ]
-            const auto front_empty_blocks_count = begin_block_index;
-            const auto back_empty_blocks_count = blocks_count - ceil_division(calculate_end_index(), block_size);
-            const auto filled_blocks_count = blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
-
-            // Copy all blocks
-            std::copy(blocks, blocks + blocks_count, new_blocks);
-            allocate_blocks_if_not_allocated(new_blocks, new_blocks + front_empty_blocks_count);
-            allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + blocks_count);
-            allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+        if (blocks == nullptr) {
+            allocate_blocks_unsafe(new_blocks, new_blocks + new_blocks_count);
         } else {
-            // And here we deal with this case:
-            //       end    begin
-            //        v       v
-            // [#|#|#| | | | |#]
-            const auto back_blocks_count = blocks_count - begin_block_index;
-            const auto front_blocks_count = ceil_division(calculate_end_index(), block_size);
-            std::copy(blocks + begin_block_index, blocks + blocks_count, new_blocks);
-            std::copy(blocks, blocks + front_blocks_count, new_blocks + back_blocks_count);
-            std::copy(
-                blocks + front_blocks_count,
-                blocks + back_blocks_count,
-                new_blocks + back_blocks_count + front_blocks_count
-            ); // Copy free blocks, because they can be empty but allocated and we don't want to leak
-            allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + blocks_count);
-            allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+            if (begin_index < calculate_end_index()) {
+                // Deque looks like this:
+                //    begin      end
+                //      v         v
+                // [ | |#|#|#|#|#| ]
+                const auto front_empty_blocks_count = begin_block_index;
+                const auto back_empty_blocks_count = blocks_count - ceil_division(calculate_end_index(), block_size);
+                const auto filled_blocks_count = blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
+
+                // Copy all blocks
+                std::copy(blocks, blocks + blocks_count, new_blocks);
+                allocate_blocks_if_not_allocated(new_blocks, new_blocks + front_empty_blocks_count);
+                allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + blocks_count);
+                allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+            } else {
+                // And here we deal with this case:
+                //       end    begin
+                //        v       v
+                // [#|#|#| | | | |#]
+                const auto back_blocks_count = blocks_count - begin_block_index;
+                const auto front_blocks_count = ceil_division(calculate_end_index(), block_size);
+                std::copy(blocks + begin_block_index, blocks + blocks_count, new_blocks);
+                std::copy(blocks, blocks + front_blocks_count, new_blocks + back_blocks_count);
+                std::copy(
+                    blocks + front_blocks_count,
+                    blocks + back_blocks_count,
+                    new_blocks + back_blocks_count + front_blocks_count
+                ); // Copy free blocks, because they can be empty but allocated and we don't want to leak
+                allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + blocks_count);
+                allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+            }
+            deallocate_blocks_array();
         }
-        deallocate_blocks_array();
 
         begin_index = begin_index % block_size;
         blocks = new_blocks;
@@ -840,6 +846,16 @@ namespace my
     {
         for (auto current_block = begin_block; current_block != end_block; ++current_block) {
             assert((*current_block == nullptr) && "Block is already allocated. You should use this function only with ranges of not allocated blocks");
+            *current_block = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::allocate_blocks_unsafe(block_type* begin_block, block_type* end_block)
+    {
+        // Should only be used if you are 100% sure that you will only overwrite garbage pointers
+        // For example when you just allocated array of block pointers, but not yet initialized it with nulls
+        for (auto current_block = begin_block; current_block != end_block; ++current_block) {
             *current_block = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
         }
     }
