@@ -112,8 +112,7 @@ namespace my
         constexpr static size_type block_size = calculate_block_size<T, size_type>(); // Size as number of elements not bytes
         
         // Implementation specific type aliases
-        // Chunk of memory with size = block_size
-        using block_type = value_type*;
+        using block_type = value_type*; // Chunk of memory with size = block_size
 
         using element_allocator_type = allocator_type;
         using block_allocator_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<block_type>;
