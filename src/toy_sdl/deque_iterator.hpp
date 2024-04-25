@@ -1,28 +1,37 @@
-#ifndef TOY_SDL_ITERATOR_HPP
-#define TOY_SDL_ITERATOR_HPP
+#ifndef TOY_SDL_DEQUE_ITERATOR_HPP
+#define TOY_SDL_DEQUE_ITERATOR_HPP
+
+#include "deque_data.hpp"
 
 #include <compare>
 #include <iterator>
 
 namespace my
 {
-    template <typename T>
+    template <typename Deq>
     class deque_iterator
     {
+    private:
+        using deque_data_type = typename Deq::deque_data_type;
+        using size_type = typename Deq::size_type;
+
+        constexpr static size_type block_size = Deq::block_size;
+
     public:
         using iterator_concept = std::random_access_iterator_tag;
         using iterator_category = std::random_access_iterator_tag;
-        using value_type = T;
-        using difference_type = std::ptrdiff_t;
-        using pointer = T*;
-        using reference = T&;
+
+        using value_type = typename Deq::value_type;
+        using difference_type = typename Deq::difference_type;
+        using pointer = typename Deq::pointer;
+        using reference = typename Deq::reference;
         using element_type = value_type;
 
         deque_iterator() = default;
-        explicit deque_iterator();
+        deque_iterator(deque_data_type* data, size_type index);
 
-        bool operator==(const deque_iterator<T>& other) const;
-        std::strong_ordering operator<=> (const deque_iterator<T>& other) const;
+        bool operator==(const deque_iterator& other) const;
+        std::strong_ordering operator<=>(const deque_iterator& other) const;
 
         deque_iterator& operator++();
         deque_iterator operator++(int);
@@ -40,15 +49,17 @@ namespace my
         template<typename U>
         friend deque_iterator<U>::difference_type operator-(const deque_iterator<U>& a, const deque_iterator<U>& b);
 
-        T& operator[](difference_type n) const;
-        T& operator*() const;
-        T* operator->() const;
+        reference operator[](difference_type n) const;
+        reference operator*() const;
+        pointer operator->() const;
+    
     private:
-        
+        deque_data_type* data { nullptr };
+        size_type index { 0 };
     };
 
     template <typename T>
-    deque_iterator<T>::deque_iterator()
+    deque_iterator<T>::deque_iterator(deque_data_type* data, size_type index)
     {
         // TODO
     }
@@ -59,7 +70,7 @@ namespace my
         // TODO
     }
 
-    template<typename T>
+    template <typename T>
     std::strong_ordering deque_iterator<T>::operator<=>(const deque_iterator<T>& other) const
     {
         // TODO
@@ -137,22 +148,22 @@ namespace my
     }
 
     template<typename T>
-    T& deque_iterator<T>::operator[](difference_type n) const
+    deque_iterator<T>::reference deque_iterator<T>::operator[](difference_type n) const
     {
         // TODO
     }
 
     template <typename T>
-    T& deque_iterator<T>::operator*() const
+    deque_iterator<T>::reference deque_iterator<T>::operator*() const
     {
         // TODO
     }
 
     template <typename T>
-    T* deque_iterator<T>::operator->() const
+    deque_iterator<T>::pointer deque_iterator<T>::operator->() const
     {
         // TODO
     }
 }
 
-#endif /* TOY_SDL_ITERATOR_HPP */
+#endif /* TOY_SDL_DEQUE_ITERATOR_HPP */

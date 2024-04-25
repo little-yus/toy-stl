@@ -1,23 +1,15 @@
 #ifndef TOY_SDL_DEQUE_HPP
 #define TOY_SDL_DEQUE_HPP
 
+#include "deque_data.hpp"
+
 #include <memory>
-#include <cmath>
 #include <cassert>
 #include <stdexcept>
 #include <algorithm>
 
 namespace my
 {
-    template <typename value_type, typename size_type>
-    constexpr size_type calculate_block_size()
-    {
-        // Should work like clang strategy
-        // When sizeof(value_type) < 256 you get maximum number of elements you can fit in 4096 bytes
-        // Otherwise you always get 16 elements
-        return std::max(4096 / sizeof(value_type), std::size_t{ 16 });
-    }
-
     template <typename T>
     constexpr T ceil_division(T a, T b)
     {
@@ -108,11 +100,13 @@ namespace my
         constexpr void swap(deque& other) noexcept;
 
     private:
+        using deque_data_type = deque_data<value_type, size_type>;
+
         // Implementation specific constants
-        constexpr static size_type block_size = calculate_block_size<T, size_type>(); // Size as number of elements not bytes
+        constexpr static size_type block_size = deque_data_type::block_size; // Size as number of elements not bytes
         
         // Implementation specific type aliases
-        using block_type = value_type*; // Chunk of memory with size = block_size
+        using block_type = typename deque_data_type::block_type; // Chunk of memory with size = block_size
 
         using element_allocator_type = allocator_type;
         using block_allocator_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<block_type>;
@@ -158,14 +152,7 @@ namespace my
         element_allocator_type element_allocator { };
         block_allocator_type block_allocator { }; // Name is a bit confusing, because it allocated arrays of pointers to blocks and not actual blocks
         
-        // Circular array of blocks with size = blocks_count
-        block_type* blocks { nullptr };
-        size_type blocks_count { 0 };
-        // Index like in array of size block_count * block_size
-        // Range is exclusive - [begin_index, begin_index + elements_count)
-        // And supports wrapping around
-        size_type begin_index { 0 }; // Maybe should change to signed type
-        size_type elements_count { 0 };
+        deque_data_type data;
     };
 
     template <typename T, typename Allocator>
@@ -219,28 +206,26 @@ namespace my
     constexpr deque<T, Allocator>::deque(const deque& other) :
         element_allocator(std::allocator_traits<element_allocator_type>::select_on_container_copy_construction(other.get_allocator())),
         block_allocator(std::allocator_traits<element_allocator_type>::select_on_container_copy_construction(other.get_allocator())),
-        blocks(nullptr),
-        blocks_count(0),
-        begin_index(0),
-        elements_count(other.elements_count)
+        data()
     {
-        blocks_count = (elements_count + block_size - 1) / block_size; // Ceil division
+        data.elements_count = other.data.elements_count;
+        data.blocks_count = (data.elements_count + block_size - 1) / block_size; // Ceil division
         
-        if (blocks_count > 0) {
+        if (data.blocks_count > 0) {
             // Allocate just enough blocks to store all elements
-            blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, blocks_count);
-            for (size_type i = 0; i < blocks_count; ++i) {
-                blocks[i] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+            data.blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, data.blocks_count);
+            for (size_type i = 0; i < data.blocks_count; ++i) {
+                data.blocks[i] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
             }
 
             // Copy all elements
-            for (size_type i = 0; i < elements_count; ++i) {
+            for (size_type i = 0; i < data.elements_count; ++i) {
                 const auto block_index = calculate_block_index(i);
                 const auto block_offset = calculate_block_offset(i);
 
                 std::allocator_traits<element_allocator_type>::construct(
                     element_allocator,
-                    blocks[block_index] + block_offset,
+                    data.blocks[block_index] + block_offset,
                     other[i]
                 );
             }
@@ -260,15 +245,9 @@ namespace my
     constexpr deque<T, Allocator>::deque(deque&& other) :
         element_allocator(std::move(other.element_allocator)),
         block_allocator(std::move(other.block_allocator)),
-        blocks(other.blocks),
-        blocks_count(other.blocks_count),
-        begin_index(other.begin_index),
-        elements_count(other.elements_count)
+        data(other.data)
     {
-        other.blocks = nullptr;
-        other.blocks_count = 0;
-        other.begin_index = 0;
-        other.elements_count = 0;
+        other.data = {};
     }
 
     template <typename T, typename Allocator>
@@ -299,26 +278,26 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::operator[](size_type index)
     {
-        const auto physical_index = calculate_next_index(begin_index, index);
+        const auto physical_index = calculate_next_index(data.begin_index, index);
         const auto block_index = calculate_block_index(physical_index);
         const auto block_offset = calculate_block_offset(physical_index);
-        return blocks[block_index][block_offset];
+        return data.blocks[block_index][block_offset];
     }
 
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::operator[](size_type index) const
     {
-        const auto physical_index = calculate_next_index(begin_index, index);
+        const auto physical_index = calculate_next_index(data.begin_index, index);
         const auto block_index = calculate_block_index(physical_index);
         const auto block_offset = calculate_block_offset(physical_index);
-        return blocks[block_index][block_offset];
+        return data.blocks[block_index][block_offset];
     }
 
 
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::at(size_type index)
     {
-        if (index >= elements_count) {
+        if (index >= data.elements_count) {
             throw std::out_of_range("Invalid element index");
         }
 
@@ -328,7 +307,7 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::at(size_type index) const
     {
-        if (index >= elements_count) {
+        if (index >= data.elements_count) {
             throw std::out_of_range("Invalid element index");
         }
 
@@ -339,19 +318,19 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::front()
     {
-        const auto block_index = calculate_block_index(begin_index);
-        const auto block_offset = calculate_block_offset(begin_index);
+        const auto block_index = calculate_block_index(data.begin_index);
+        const auto block_offset = calculate_block_offset(data.begin_index);
 
-        return blocks[block_index][block_offset];
+        return data.blocks[block_index][block_offset];
     }
 
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::const_reference deque<T, Allocator>::front() const
     {
-        const auto block_index = calculate_block_index(begin_index);
-        const auto block_offset = calculate_block_offset(begin_index);
+        const auto block_index = calculate_block_index(data.begin_index);
+        const auto block_offset = calculate_block_offset(data.begin_index);
         
-        return blocks[block_index][block_offset];
+        return data.blocks[block_index][block_offset];
     }
 
 
@@ -362,7 +341,7 @@ namespace my
         auto block_index = calculate_block_index(last_element_index);
         auto block_offset = calculate_block_offset(last_element_index);
 
-        return blocks[block_index][block_offset];
+        return data.blocks[block_index][block_offset];
     }
 
     template <typename T, typename Allocator>
@@ -372,7 +351,7 @@ namespace my
         auto block_index = calculate_block_index(last_element_index);
         auto block_offset = calculate_block_offset(last_element_index);
 
-        return blocks[block_index][block_offset];
+        return data.blocks[block_index][block_offset];
     }
 
 
@@ -386,7 +365,7 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::size() const noexcept
     {
-        return elements_count;
+        return data.elements_count;
     }
 
 
@@ -396,7 +375,7 @@ namespace my
     {
         destroy_all_elements();
         // Begin index remains the same to utilize memory of already allocated blocks
-        elements_count = 0;
+        data.elements_count = 0;
     }
 
 
@@ -426,18 +405,18 @@ namespace my
 
         // Allocate if we step into unallocated block
         // Should not overwrite old blocks
-        if (blocks[end_index] == nullptr) {
-            blocks[end_index] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+        if (data.blocks[end_index] == nullptr) {
+            data.blocks[end_index] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
         }
         std::allocator_traits<element_allocator_type>::construct(
             element_allocator,
-            blocks[end_block] + end_offset,
+            data.blocks[end_block] + end_offset,
             std::forward<Args>(args) ...
         );
 
-        ++elements_count;
+        ++data.elements_count;
 
-        return blocks[end_block][end_offset];
+        return data.blocks[end_block][end_offset];
     }
 
 
@@ -461,32 +440,32 @@ namespace my
             grow_capacity();
         }
         
-        auto new_begin_index = calculate_previous_index(begin_index);
+        auto new_begin_index = calculate_previous_index(data.begin_index);
         auto new_begin_block = calculate_block_index(new_begin_index);
         auto new_begin_offset = calculate_block_offset(new_begin_index);
 
         // Allocate if we step into unallocated block
         // Should not overwrite old blocks
-        if (blocks[new_begin_block] == nullptr) {
-            blocks[new_begin_block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
+        if (data.blocks[new_begin_block] == nullptr) {
+            data.blocks[new_begin_block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
         }
         std::allocator_traits<element_allocator_type>::construct(
             element_allocator,
-            blocks[new_begin_block] + new_begin_offset,
+            data.blocks[new_begin_block] + new_begin_offset,
             std::forward<Args>(args) ...
         );
 
-        begin_index = new_begin_index;
-        ++elements_count;
+        data.begin_index = new_begin_index;
+        ++data.elements_count;
 
-        return blocks[new_begin_block][new_begin_offset];
+        return data.blocks[new_begin_block][new_begin_offset];
     }
 
 
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::pop_back()
     {
-        assert((elements_count > 0) && "Trying to remove last element of empty deque is undefined behavior");
+        assert((data.elements_count > 0) && "Trying to remove last element of empty deque is undefined behavior");
 
         const auto last_element_index = calculate_previous_index(calculate_end_index());
         const auto last_element_block = calculate_block_index(last_element_index);
@@ -494,27 +473,27 @@ namespace my
 
         std::allocator_traits<element_allocator_type>::destroy(
             element_allocator,
-            blocks[last_element_block] + last_element_offset
+            data.blocks[last_element_block] + last_element_offset
         );
 
-        --elements_count;
+        --data.elements_count;
     }
 
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::pop_front()
     {
-        assert((elements_count > 0) && "Trying to remove first element of empty deque is undefined behavior");
+        assert((data.elements_count > 0) && "Trying to remove first element of empty deque is undefined behavior");
 
-        auto begin_block = calculate_block_index(begin_index);
-        auto begin_offset = calculate_block_offset(begin_index);
+        auto begin_block = calculate_block_index(data.begin_index);
+        auto begin_offset = calculate_block_offset(data.begin_index);
 
         std::allocator_traits<element_allocator_type>::destroy(
             element_allocator,
-            blocks[begin_block] + begin_offset
+            data.blocks[begin_block] + begin_offset
         );
 
-        begin_index = calculate_next_index(begin_index);
-        --elements_count;
+        data.begin_index = calculate_next_index(data.begin_index);
+        --data.elements_count;
     }
 
     template <typename T, typename Allocator>
@@ -522,14 +501,14 @@ namespace my
     {
         if (new_size <= size()) {
             const auto number_of_elements_to_destroy = size() - new_size;
-            destroy_range(calculate_next_index(begin_index, new_size), number_of_elements_to_destroy);
+            destroy_range(calculate_next_index(data.begin_index, new_size), number_of_elements_to_destroy);
         } else {
             const auto number_of_new_elements = new_size - size();
             grow_capacity_to_fit(new_size);
             default_construct_range(calculate_end_index(), number_of_new_elements);
         }
 
-        elements_count = new_size;
+        data.elements_count = new_size;
     }
 
     template <typename T, typename Allocator>
@@ -537,14 +516,14 @@ namespace my
     {
         if (new_size <= size()) {
             const auto number_of_elements_to_destroy = size() - new_size;
-            destroy_range(calculate_next_index(begin_index, new_size), number_of_elements_to_destroy);
+            destroy_range(calculate_next_index(data.begin_index, new_size), number_of_elements_to_destroy);
         } else {
             const auto number_of_new_elements = new_size - size();
             grow_capacity_to_fit(new_size);
             copy_construct_range_values(calculate_end_index(), number_of_new_elements, value);
         }
 
-        elements_count = new_size;
+        data.elements_count = new_size;
     }
 
     template <typename T, typename Allocator>
@@ -557,10 +536,10 @@ namespace my
             std::swap(element_allocator, other.element_allocator);
         }
 
-        std::swap(blocks, other.blocks);
-        std::swap(blocks_count, other.blocks_count);
-        std::swap(begin_index, other.begin_index);
-        std::swap(elements_count, other.elements_count);
+        std::swap(data.blocks, other.data.blocks);
+        std::swap(data.blocks_count, other.data.blocks_count);
+        std::swap(data.begin_index, other.data.begin_index);
+        std::swap(data.elements_count, other.data.elements_count);
     }
 
 
@@ -569,32 +548,32 @@ namespace my
     constexpr void deque<T, Allocator>::grow_capacity()
     {
         size_type new_blocks_count;
-        if (blocks_count == 0) {
+        if (data.blocks_count == 0) {
             new_blocks_count = 2; // Minimum 2 blocks, number is arbitrary
         } else {
-            new_blocks_count = blocks_count * 2;
+            new_blocks_count = data.blocks_count * 2;
         }
 
         auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
-        auto begin_block_index = calculate_block_index(begin_index);
-        auto begin_block_offset = calculate_block_offset(begin_index);
+        auto begin_block_index = calculate_block_index(data.begin_index);
+        auto begin_block_offset = calculate_block_offset(data.begin_index);
         // We copy blocks before begin block to the start of the new memory
-        std::copy(blocks, blocks + begin_block_index, new_blocks);
+        std::copy(data.blocks, data.blocks + begin_block_index, new_blocks);
         // And all blocks after (including begin block) to the end
         // Backwards because calculating d_first is more complicated than d_last
-        std::copy_backward(blocks + begin_block_index, blocks + blocks_count, new_blocks + new_blocks_count);
+        std::copy_backward(data.blocks + begin_block_index, data.blocks + data.blocks_count, new_blocks + new_blocks_count);
 
-        auto new_begin_block_index = new_blocks_count - (blocks_count - begin_block_index);
+        auto new_begin_block_index = new_blocks_count - (data.blocks_count - begin_block_index);
 
         // Don't forget to fill the gap between the two with nullptrs
         std::fill(new_blocks + begin_block_index, new_blocks + new_begin_block_index, nullptr);
 
         // Clear block pointers array
-        std::allocator_traits<block_allocator_type>::deallocate(block_allocator, blocks, blocks_count);
+        std::allocator_traits<block_allocator_type>::deallocate(block_allocator, data.blocks, data.blocks_count);
 
-        begin_index = calculate_element_index(new_begin_block_index, begin_block_offset) % (new_blocks_count * block_size);
-        blocks = new_blocks;
-        blocks_count = new_blocks_count;
+        data.begin_index = calculate_element_index(new_begin_block_index, begin_block_offset) % (new_blocks_count * block_size);
+        data.blocks = new_blocks;
+        data.blocks_count = new_blocks_count;
         // elements_count is not changed
     }
 
@@ -606,57 +585,57 @@ namespace my
 
         if (new_elements_count <= free_elements_count) {
             // No need to iterate all blocks, but i don't feel like calculating which ones are/aren't allocated
-            allocate_blocks_if_not_allocated(blocks, blocks + blocks_count);
+            allocate_blocks_if_not_allocated(data.blocks, data.blocks + data.blocks_count);
             return;
         }
 
         const auto extra_elements_count = new_elements_count - free_elements_count;
         const auto extra_blocks_count = (extra_elements_count + block_size - 1) / block_size;
-        const auto new_blocks_count = blocks_count + extra_blocks_count;
+        const auto new_blocks_count = data.blocks_count + extra_blocks_count;
 
         auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
         
-        auto begin_block_index = calculate_block_index(begin_index);
-        if (blocks == nullptr) {
+        auto begin_block_index = calculate_block_index(data.begin_index);
+        if (data.blocks == nullptr) {
             allocate_blocks_unsafe(new_blocks, new_blocks + new_blocks_count);
         } else {
-            if (begin_index < calculate_end_index()) {
+            if (data.begin_index < calculate_end_index()) {
                 // Deque looks like this:
                 //    begin      end
                 //      v         v
                 // [ | |#|#|#|#|#| ]
                 const auto front_empty_blocks_count = begin_block_index;
-                const auto back_empty_blocks_count = blocks_count - ceil_division(calculate_end_index(), block_size);
-                const auto filled_blocks_count = blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
+                const auto back_empty_blocks_count = data.blocks_count - ceil_division(calculate_end_index(), block_size);
+                const auto filled_blocks_count = data.blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
 
                 // Copy all blocks
-                std::copy(blocks, blocks + blocks_count, new_blocks);
+                std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
                 allocate_blocks_if_not_allocated(new_blocks, new_blocks + front_empty_blocks_count);
-                allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + blocks_count);
-                allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+                allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + data.blocks_count);
+                allocate_blocks(new_blocks + data.blocks_count, new_blocks + new_blocks_count);
             } else {
                 // And here we deal with this case:
                 //       end    begin
                 //        v       v
                 // [#|#|#| | | | |#]
-                const auto back_blocks_count = blocks_count - begin_block_index;
+                const auto back_blocks_count = data.blocks_count - begin_block_index;
                 const auto front_blocks_count = ceil_division(calculate_end_index(), block_size);
-                std::copy(blocks + begin_block_index, blocks + blocks_count, new_blocks);
-                std::copy(blocks, blocks + front_blocks_count, new_blocks + back_blocks_count);
+                std::copy(data.blocks + begin_block_index, data.blocks + data.blocks_count, new_blocks);
+                std::copy(data.blocks, data.blocks + front_blocks_count, new_blocks + back_blocks_count);
                 std::copy(
-                    blocks + front_blocks_count,
-                    blocks + back_blocks_count,
+                    data.blocks + front_blocks_count,
+                    data.blocks + back_blocks_count,
                     new_blocks + back_blocks_count + front_blocks_count
                 ); // Copy free blocks, because they can be empty but allocated and we don't want to leak
-                allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + blocks_count);
-                allocate_blocks(new_blocks + blocks_count, new_blocks + new_blocks_count);
+                allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + data.blocks_count);
+                allocate_blocks(new_blocks + data.blocks_count, new_blocks + new_blocks_count);
             }
             deallocate_blocks_array();
         }
 
-        begin_index = begin_index % block_size;
-        blocks = new_blocks;
-        blocks_count = new_blocks_count;
+        data.begin_index = data.begin_index % block_size;
+        data.blocks = new_blocks;
+        data.blocks_count = new_blocks_count;
 
         assert((all_blocks_are_allocated()) && "All blocks must be allocated. It should be safe to construct element in any block after call to this function");
     }
@@ -664,14 +643,14 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::capacity() const
     {
-        return block_size * blocks_count;
+        return block_size * data.blocks_count;
     }
 
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::calculate_end_index() const
     {
-        assert((elements_count < capacity()) && "Memory is filled. End index would end up equal to begin index. You should handle this case separately using is_memory_filled");
-        return (begin_index + elements_count) % capacity();
+        assert((data.elements_count < capacity()) && "Memory is filled. End index would end up equal to begin index. You should handle this case separately using is_memory_filled");
+        return (data.begin_index + data.elements_count) % capacity();
     }
 
     template <typename T, typename Allocator>
@@ -720,7 +699,7 @@ namespace my
         //        v       v
         // [#|#|#| | | | |#]
 
-        auto new_begin_index = calculate_previous_index(begin_index);
+        auto new_begin_index = calculate_previous_index(data.begin_index);
         auto end_index = calculate_end_index();
 
         auto new_begin_block = calculate_block_index(new_begin_index);
@@ -732,7 +711,7 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::calculate_free_back_elements_count() const
     {
-        const auto number_of_free_elements_in_first_block = calculate_block_offset(begin_index);
+        const auto number_of_free_elements_in_first_block = calculate_block_offset(data.begin_index);
         return capacity() - number_of_free_elements_in_first_block;
     }
 
@@ -743,29 +722,29 @@ namespace my
         auto new_end_index = calculate_next_index(end_index);
 
         auto new_end_block = calculate_block_index(new_end_index);
-        auto begin_block = calculate_block_index(begin_index);
+        auto begin_block = calculate_block_index(data.begin_index);
 
-        return (new_end_index < begin_index) && (new_end_block == begin_block);
+        return (new_end_index < data.begin_index) && (new_end_block == begin_block);
     }
 
     template <typename T, typename Allocator>
     constexpr bool deque<T, Allocator>::is_memory_filled() const
     {
-        return elements_count == capacity();
+        return data.elements_count == capacity();
     }
 
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::destroy_all_elements()
     {
-        auto current_index = begin_index;
+        auto current_index = data.begin_index;
 
-        for (size_type i = 0; i < elements_count; ++i) {
+        for (size_type i = 0; i < data.elements_count; ++i) {
             const auto current_block_index = calculate_block_index(current_index);
             const auto current_block_offset = calculate_block_offset(current_index);
 
             std::allocator_traits<element_allocator_type>::destroy(
                 element_allocator,
-                blocks[current_block_index] + current_block_offset
+                data.blocks[current_block_index] + current_block_offset
             );
 
             current_index = calculate_next_index(current_index);
@@ -775,9 +754,9 @@ namespace my
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::deallocate_all_blocks()
     {
-        for (size_type i = 0; i < blocks_count; ++i) {
-            if (blocks[i] != nullptr) {
-                std::allocator_traits<element_allocator_type>::deallocate(element_allocator, blocks[i], block_size);
+        for (size_type i = 0; i < data.blocks_count; ++i) {
+            if (data.blocks[i] != nullptr) {
+                std::allocator_traits<element_allocator_type>::deallocate(element_allocator, data.blocks[i], block_size);
             }
         }
     }
@@ -785,7 +764,7 @@ namespace my
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::deallocate_blocks_array()
     {
-        std::allocator_traits<block_allocator_type>::deallocate(block_allocator, blocks, blocks_count);
+        std::allocator_traits<block_allocator_type>::deallocate(block_allocator, data.blocks, data.blocks_count);
     }
 
     
@@ -798,7 +777,7 @@ namespace my
 
             std::allocator_traits<element_allocator_type>::destroy(
                 element_allocator,
-                blocks[current_block] + current_offset
+                data.blocks[current_block] + current_offset
             );
 
             range_begin = calculate_next_index(range_begin);
@@ -815,7 +794,7 @@ namespace my
 
             std::allocator_traits<element_allocator_type>::construct(
                 element_allocator,
-                blocks[current_block] + current_offset
+                data.blocks[current_block] + current_offset
             );
 
             range_begin = calculate_next_index(range_begin);
@@ -832,7 +811,7 @@ namespace my
 
             std::allocator_traits<element_allocator_type>::construct(
                 element_allocator,
-                blocks[current_block] + current_offset,
+                data.blocks[current_block] + current_offset,
                 value
             );
 
@@ -872,7 +851,7 @@ namespace my
     template <typename T, typename Allocator>
     constexpr bool deque<T, Allocator>::all_blocks_are_allocated() const
     {
-        return std::all_of(blocks, blocks + blocks_count, [](block_type block){ return block != nullptr; });
+        return std::all_of(data.blocks, data.blocks + data.blocks_count, [](block_type block){ return block != nullptr; });
     }
 }
 
