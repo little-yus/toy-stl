@@ -40,14 +40,14 @@ namespace my
         deque_iterator operator--(int);
 
         deque_iterator& operator+=(difference_type n);
-        template<typename U>
+        template <typename U>
         friend deque_iterator<U> operator+(deque_iterator<U> i, deque_iterator<U>::difference_type n);
-        template<typename U>
+        template <typename U>
         friend deque_iterator<U> operator+(deque_iterator<U>::difference_type n, deque_iterator<U> i);
 
         deque_iterator& operator-=(difference_type n);
-        template<typename U>
-        friend deque_iterator<U>::difference_type operator-(const deque_iterator<U>& a, const deque_iterator<U>& b);
+        template <typename U>
+        friend typename deque_iterator<U>::difference_type operator-(const deque_iterator<U>& a, const deque_iterator<U>& b);
 
         reference operator[](difference_type n) const;
         reference operator*() const;
@@ -55,31 +55,39 @@ namespace my
     
     private:
         deque_data_type* data { nullptr };
+
+        // Index here is relative to begin_index from deque_data
+        // To access data you first need to find absolute index (with wraparound)
+        // Then find block index and offset from it
         size_type index { 0 };
     };
 
     template <typename T>
-    deque_iterator<T>::deque_iterator(deque_data_type* data, size_type index)
+    deque_iterator<T>::deque_iterator(deque_data_type* data, size_type index) :
+        data(data),
+        index(index)
     {
-        // TODO
+        
     }
 
     template <typename T>
     bool deque_iterator<T>::operator==(const deque_iterator<T>& other) const
     {
-        // TODO
+        assert((data == other.data) && "Iterators point to different containers");
+        return index == other.index;
     }
 
     template <typename T>
     std::strong_ordering deque_iterator<T>::operator<=>(const deque_iterator<T>& other) const
     {
-        // TODO
+        assert((data == other.data) && "Iterators point to different containers");
+        return index <=> other.index;
     }
 
     template <typename T>
     deque_iterator<T>& deque_iterator<T>::operator++()
     {
-        // TODO
+        ++index;
         return *this;
     }
 
@@ -87,14 +95,14 @@ namespace my
     deque_iterator<T> deque_iterator<T>::operator++(int)
     {
         const auto copy = *this;
-        ++ptr;
+        ++(*this);
         return copy;
     }
 
     template <typename T>
     deque_iterator<T>& deque_iterator<T>::operator--()
     {
-        // TODO
+        --index;
         return *this;
     }
 
@@ -102,14 +110,14 @@ namespace my
     deque_iterator<T> deque_iterator<T>::operator--(int)
     {
         const auto copy = *this;
-        --ptr;
+        --(*this);
         return copy;
     }
 
     template<typename T>
     deque_iterator<T>& deque_iterator<T>::operator+=(difference_type n)
     {
-        // TODO
+        index += n;
         return *this;
     }
 
@@ -130,7 +138,7 @@ namespace my
     template<typename T>
     deque_iterator<T>& deque_iterator<T>::operator-=(difference_type n)
     {
-        // TODO
+        index -= n;
         return *this;
     }
 
@@ -144,25 +152,34 @@ namespace my
     template <typename T>
     deque_iterator<T>::difference_type operator-(const deque_iterator<T>& a, const deque_iterator<T>& b)
     {
-        // TODO
+        return a.index - b.index;
     }
 
     template<typename T>
     deque_iterator<T>::reference deque_iterator<T>::operator[](difference_type n) const
     {
-        // TODO
+        const auto absolute_index = data->calculate_next_index(data->begin_index, index + n);
+        const auto block_index = data->calculate_block_index(absolute_index);
+        const auto block_offset = data->calculate_block_offset(absolute_index);
+        return data->blocks[block_index][block_offset];
     }
 
     template <typename T>
     deque_iterator<T>::reference deque_iterator<T>::operator*() const
     {
-        // TODO
+        const auto absolute_index = data->calculate_next_index(data->begin_index, index);
+        const auto block_index = data->calculate_block_index(absolute_index);
+        const auto block_offset = data->calculate_block_offset(absolute_index);
+        return data->blocks[block_index][block_offset];
     }
 
     template <typename T>
     deque_iterator<T>::pointer deque_iterator<T>::operator->() const
     {
-        // TODO
+        const auto absolute_index = data->calculate_next_index(data->begin_index, index);
+        const auto block_index = data->calculate_block_index(absolute_index);
+        const auto block_offset = data->calculate_block_offset(absolute_index);
+        return data->blocks[block_index] + block_offset;
     }
 }
 
