@@ -35,7 +35,7 @@ namespace my
         // TODO
         using iterator = deque_iterator<deque>;
         // using const_iterator = ;
-        // using reverse_iterator = std::reverse_iterator<iterator>;
+        using reverse_iterator = std::reverse_iterator<iterator>;
         // using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
         // Constructors
@@ -103,6 +103,9 @@ namespace my
         // Iterators
         constexpr iterator begin() noexcept;
         constexpr iterator end() noexcept;
+
+        constexpr reverse_iterator rbegin() noexcept;
+        constexpr reverse_iterator rend() noexcept;
 
         // Implementation specific type aliases
         using deque_data_type = deque_data<value_type, size_type>;
@@ -556,6 +559,18 @@ namespace my
     constexpr deque<T, Allocator>::iterator deque<T, Allocator>::end() noexcept
     {
         return iterator(&data, data.elements_count);
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::reverse_iterator deque<T, Allocator>::rbegin() noexcept
+    {
+        return reverse_iterator(end());
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::reverse_iterator deque<T, Allocator>::rend() noexcept
+    {
+        return reverse_iterator(begin());
     }
 
 
