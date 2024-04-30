@@ -3,6 +3,7 @@
 
 #include "deque_data.hpp"
 #include "deque_iterator.hpp"
+#include "iterator.hpp"
 
 #include <memory>
 #include <cassert>
@@ -30,13 +31,19 @@ namespace my
         using const_reference = const value_type&;
         using pointer = std::allocator_traits<Allocator>::pointer;
         using const_pointer = std::allocator_traits<Allocator>::const_pointer;
+    
+        // Implementation specific type aliases
+        using deque_data_type = deque_data<value_type, size_type>;
+        using block_type = typename deque_data_type::block_type; // Chunk of memory with size = block_size
+
+        // Implementation specific constants
+        constexpr static size_type block_size = deque_data_type::block_size; // Size as number of elements not bytes
         
         // Iterator types
-        // TODO
         using iterator = deque_iterator<deque>;
-        // using const_iterator = ;
-        using reverse_iterator = std::reverse_iterator<iterator>;
-        // using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+        using const_iterator = my::const_iterator<iterator>;
+        using reverse_iterator = my::reverse_iterator<iterator>;
+        using const_reverse_iterator = my::const_iterator<reverse_iterator>;
 
         // Constructors
         constexpr deque(); // Standard says nothing about nothrow so we assume it can throw https://stackoverflow.com/questions/15191741/does-default-constructor-of-deque-throw
@@ -106,13 +113,6 @@ namespace my
 
         constexpr reverse_iterator rbegin() noexcept;
         constexpr reverse_iterator rend() noexcept;
-
-        // Implementation specific type aliases
-        using deque_data_type = deque_data<value_type, size_type>;
-        using block_type = typename deque_data_type::block_type; // Chunk of memory with size = block_size
-
-        // Implementation specific constants
-        constexpr static size_type block_size = deque_data_type::block_size; // Size as number of elements not bytes
 
     private:
         using element_allocator_type = allocator_type;
