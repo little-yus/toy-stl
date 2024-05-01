@@ -619,13 +619,13 @@ namespace my
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::const_reverse_iterator deque<T, Allocator>::rbegin() const noexcept
     {
-        return const_iterator(reverse_iterator(end()));
+        return const_reverse_iterator(reverse_iterator(const_cast<deque*>(this)->end()));
     }
     
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::const_reverse_iterator deque<T, Allocator>::rend() const noexcept
     {
-        return const_iterator(reverse_iterator(begin()));
+        return const_reverse_iterator(reverse_iterator(const_cast<deque*>(this)->begin()));
     }
 
     template <typename T, typename Allocator>

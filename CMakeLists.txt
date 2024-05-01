@@ -16,6 +16,7 @@ add_executable(toy_stl_test
     tests/deque/iterators/iterator.cpp
     tests/deque/iterators/const_iterator.cpp
     tests/deque/iterators/reverse_iterator.cpp
+    tests/deque/iterators/const_reverse_iterator.cpp
 )
 
 find_package(doctest CONFIG REQUIRED)

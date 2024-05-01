@@ -124,6 +124,7 @@ namespace my
         constexpr basic_const_iterator& operator--() requires std::bidirectional_iterator<Iter>
         {
             --current;
+            return *this;
         }
 
         constexpr basic_const_iterator operator--(int) requires std::bidirectional_iterator<Iter>
