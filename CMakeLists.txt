@@ -8,10 +8,13 @@ target_include_directories(toy_stl_lib INTERFACE src)
 add_executable(toy_stl_test
     tests/main.cpp
     tests/vector/vector.cpp
+    
     tests/deque/constructors.cpp
     tests/deque/modifiers.cpp
     tests/deque/element_access.cpp
+
     tests/deque/iterators/iterator.cpp
+    tests/deque/iterators/const_iterator.cpp
     tests/deque/iterators/reverse_iterator.cpp
 )
 

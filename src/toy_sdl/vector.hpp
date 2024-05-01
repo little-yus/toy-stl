@@ -638,7 +638,7 @@ namespace my
 
             size_ -= erase_range_size;
 
-            iterator(data_ + (first - cbegin()));
+            return iterator(data_ + (first - cbegin()));
         }
     }
 

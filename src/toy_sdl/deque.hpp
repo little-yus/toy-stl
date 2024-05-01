@@ -1,5 +1,5 @@
-#ifndef TOY_SDL_DEQUE_HPP
-#define TOY_SDL_DEQUE_HPP
+#ifndef DEQUE_HPP
+#define DEQUE_HPP
 
 #include "deque_data.hpp"
 #include "deque_iterator.hpp"
@@ -111,8 +111,21 @@ namespace my
         constexpr iterator begin() noexcept;
         constexpr iterator end() noexcept;
 
+        constexpr const_iterator begin() const noexcept;
+        constexpr const_iterator end() const noexcept;
+
+        constexpr const_iterator cbegin() const noexcept;
+        constexpr const_iterator cend() const noexcept;
+
+        // Reverse iterators
         constexpr reverse_iterator rbegin() noexcept;
         constexpr reverse_iterator rend() noexcept;
+
+        constexpr const_reverse_iterator rbegin() const noexcept;
+        constexpr const_reverse_iterator rend() const noexcept;
+
+        constexpr const_reverse_iterator crbegin() const noexcept;
+        constexpr const_reverse_iterator crend() const noexcept;
 
     private:
         using element_allocator_type = allocator_type;
@@ -549,6 +562,8 @@ namespace my
         std::swap(data.elements_count, other.data.elements_count);
     }
 
+
+    // Iterators
     template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::iterator deque<T, Allocator>::begin() noexcept
     {
@@ -562,6 +577,34 @@ namespace my
     }
 
     template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_iterator deque<T, Allocator>::begin() const noexcept
+    {
+        // I know const_cast is bad, but i don't know if there is a safe way to do this
+        // (i don't want to implement const_iterator from scratch after spending so much time on basic_const_iterator)
+        return const_iterator(iterator(const_cast<deque_data_type*>(&data), 0));
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_iterator deque<T, Allocator>::end() const noexcept
+    {
+        return const_iterator(iterator(const_cast<deque_data_type*>(&data),  data.elements_count));
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_iterator deque<T, Allocator>::cbegin() const noexcept
+    {
+        return begin();
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_iterator deque<T, Allocator>::cend() const noexcept
+    {
+        return end();
+    }
+
+
+    // Reverse iterators
+    template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::reverse_iterator deque<T, Allocator>::rbegin() noexcept
     {
         return reverse_iterator(end());
@@ -571,6 +614,30 @@ namespace my
     constexpr deque<T, Allocator>::reverse_iterator deque<T, Allocator>::rend() noexcept
     {
         return reverse_iterator(begin());
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reverse_iterator deque<T, Allocator>::rbegin() const noexcept
+    {
+        return const_iterator(reverse_iterator(end()));
+    }
+    
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reverse_iterator deque<T, Allocator>::rend() const noexcept
+    {
+        return const_iterator(reverse_iterator(begin()));
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reverse_iterator deque<T, Allocator>::crbegin() const noexcept
+    {
+        return rbegin();
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::const_reverse_iterator deque<T, Allocator>::crend() const noexcept
+    {
+        return rend();
     }
 
 
@@ -886,4 +953,4 @@ namespace my
     }
 }
 
-#endif /* TOY_SDL_DEQUE_HPP */
+#endif /* DEQUE_HPP */

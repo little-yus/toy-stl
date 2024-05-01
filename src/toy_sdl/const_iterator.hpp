@@ -106,6 +106,7 @@ namespace my
         constexpr basic_const_iterator& operator++()
         {
             ++current;
+            return (*this);
         }
 
         constexpr void operator++(int)
