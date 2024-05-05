@@ -1,14 +1,14 @@
-#ifndef DEQUE_HPP
-#define DEQUE_HPP
+#ifndef TOY_SDL_DEQUE_HPP
+#define TOY_SDL_DEQUE_HPP
 
 #include "deque_data.hpp"
 #include "deque_iterator.hpp"
 #include "iterator.hpp"
+#include "algorithm.hpp"
 
 #include <memory>
 #include <cassert>
 #include <stdexcept>
-#include <algorithm>
 
 namespace my
 {
@@ -641,6 +641,36 @@ namespace my
     }
 
 
+    // Non-member functions
+    template <class T, class Allocator>
+    constexpr bool operator==(const deque<T, Allocator>& a, const deque<T, Allocator>& b)
+    {
+        if (a.size() != b.size()) {
+            return false;
+        }
+
+        auto i = a.begin();
+        auto j = b.begin();
+        for (; i != a.end(); ++i, ++j) {
+            if (*i != *j) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    template <class T, class Allocator>
+    constexpr my::synth_three_way_result<T> operator<=>(const deque<T, Allocator>& a, const deque<T, Allocator>& b)
+    {
+        return my::lexicographical_compare_three_way(
+            a.begin(), a.end(),
+            b.begin(), b.end(),
+            my::synth_three_way { }
+        );
+    }
+
+
     // Implementation details
     template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::grow_capacity()
@@ -953,4 +983,4 @@ namespace my
     }
 }
 
-#endif /* DEQUE_HPP */
+#endif /* TOY_SDL_DEQUE_HPP */

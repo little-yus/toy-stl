@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <concepts>
 #include <iterator>
+#include <compare>
 
 namespace my
 {
@@ -46,7 +47,7 @@ namespace my
         template <typename T, typename U>
         friend constexpr bool operator== (const reverse_iterator<T>& a, const reverse_iterator<U>& b);
         template <typename T, typename U>
-        friend constexpr decltype(auto) operator<=> (const reverse_iterator<T>& a, const reverse_iterator<U>& b);
+        friend constexpr std::compare_three_way_result_t<T, U> operator<=> (const reverse_iterator<T>& a, const reverse_iterator<U>& b);
 
         constexpr reverse_iterator& operator++ ();
         constexpr reverse_iterator operator++ (int);
@@ -105,20 +106,20 @@ namespace my
         }
     }
 
-    template<typename I>
+    template <typename I>
     constexpr reverse_iterator<I>::reference reverse_iterator<I>::operator[] (difference_type n) const
     {
         return iter[-n - 1]; // Should give compilation error if iter does not support random access
     }
 
-    template<typename T, typename U>
+    template <typename T, typename U>
     constexpr bool operator== (const reverse_iterator<T>& a, const reverse_iterator<U>& b)
     {
         return a.iter == b.iter;
     }
 
-    template<typename T, typename U>
-    constexpr decltype(auto) operator<=> (const reverse_iterator<T>& a, const reverse_iterator<U>& b)
+    template <typename T, typename U>
+    constexpr std::compare_three_way_result_t<T, U> operator<=> (const reverse_iterator<T>& a, const reverse_iterator<U>& b)
     {
         return b.iter <=> a.iter;
     }

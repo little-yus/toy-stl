@@ -12,6 +12,7 @@ add_executable(toy_stl_test
     tests/deque/constructors.cpp
     tests/deque/modifiers.cpp
     tests/deque/element_access.cpp
+    tests/deque/comparisons.cpp
 
     tests/deque/iterators/iterator.cpp
     tests/deque/iterators/const_iterator.cpp
