@@ -25,7 +25,7 @@ namespace my
                     return std::weak_ordering::greater;
                 }
 
-                return std::weak_ordering::equvivalent;
+                return std::weak_ordering::equivalent;
             } 
         }
     };
