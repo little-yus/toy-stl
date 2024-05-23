@@ -1,5 +1,5 @@
-#ifndef TOY_SDL_DEQUE_HPP
-#define TOY_SDL_DEQUE_HPP
+#ifndef DEQUE_HPP
+#define DEQUE_HPP
 
 #include "deque_data.hpp"
 #include "deque_iterator.hpp"
@@ -107,6 +107,11 @@ namespace my
 
         constexpr void swap(deque& other) noexcept;
 
+        constexpr iterator insert(const_iterator pos, const T& value);
+        constexpr iterator insert(const_iterator pos, T&& value);
+        template< class... Args >
+        constexpr iterator emplace(const_iterator pos, Args&&... args);
+
         // Iterators
         constexpr iterator begin() noexcept;
         constexpr iterator end() noexcept;
@@ -151,8 +156,8 @@ namespace my
 
         constexpr size_type calculate_free_back_elements_count() const;
 
-        constexpr bool adding_back_element_would_force_move() const;
-        constexpr bool adding_front_element_would_force_move() const;
+        constexpr bool adding_back_element_would_break_invariant() const;
+        constexpr bool adding_front_element_would_break_invariant() const;
 
         constexpr void destroy_all_elements();
         constexpr void deallocate_all_blocks();
@@ -161,6 +166,9 @@ namespace my
         constexpr void destroy_range(size_type range_begin, size_type range_size);
         constexpr void default_construct_range(size_type range_begin, size_type range_size);
         constexpr void copy_construct_range_values(size_type range_begin, size_type range_size, const value_type& value);
+
+        constexpr void move_assign_range(size_type source_begin, size_type source_end, size_type destination_begin);
+        constexpr void move_assign_range_backwards(size_type source_begin, size_type source_end, size_type destination_end);
 
         constexpr void allocate_blocks(block_type* begin_block, block_type* end_block);
         constexpr void allocate_blocks_unsafe(block_type* begin_block, block_type* end_block);
@@ -415,7 +423,7 @@ namespace my
     template <typename ... Args>
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::emplace_back(Args&& ... args)
     {
-        if (is_memory_filled() || adding_back_element_would_force_move()) {
+        if (is_memory_filled() || adding_back_element_would_break_invariant()) {
             grow_capacity();
         }
         
@@ -456,7 +464,7 @@ namespace my
     template <typename ... Args>
     constexpr deque<T, Allocator>::reference deque<T, Allocator>::emplace_front(Args&& ... args)
     {
-        if (is_memory_filled() || adding_front_element_would_force_move()) {
+        if (is_memory_filled() || adding_front_element_would_break_invariant()) {
             grow_capacity();
         }
         
@@ -560,6 +568,117 @@ namespace my
         std::swap(data.blocks_count, other.data.blocks_count);
         std::swap(data.begin_index, other.data.begin_index);
         std::swap(data.elements_count, other.data.elements_count);
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, const T& value)
+    {
+        return emplace(pos, value);
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, T&& value)
+    {
+        return emplace(pos, std::move(value));
+    }
+
+    template <typename T, typename Allocator>
+    template< class... Args >
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::emplace(const_iterator pos, Args&&... args)
+    {
+        if (pos == cbegin()) {
+            emplace_front(std::forward<Args>(args) ...);
+            return begin();
+        } else if (pos == cend()) {
+            emplace_back(std::forward<Args>(args) ...);
+            return end();
+        } else {
+            if (is_memory_filled()) {
+                grow_capacity();
+            }
+
+            if (pos - begin() < end() - pos) {
+                // Move elements before pos
+                if (adding_front_element_would_break_invariant()) {
+                    grow_capacity();
+                }
+
+                const auto new_begin = calculate_previous_index(data.begin_index);
+                const auto new_begin_block = calculate_block_index(new_begin);
+                const auto new_begin_offset = calculate_block_offset(new_begin);
+                
+                std::allocator_traits<element_allocator_type>::construct(
+                    element_allocator,
+                    data.blocks[new_begin_block] + new_begin_offset,
+                    std::move(front())
+                );
+                move_assign_range(
+                    data.begin_index,
+                    calculate_next_index(data.begin_index, pos - begin()),
+                    calculate_previous_index(data.begin_index)
+                );
+
+                const auto insert_position = calculate_previous_index(calculate_next_index(data.begin_index, pos - begin()));
+                const auto insert_position_block = calculate_block_index(insert_position);
+                const auto insert_position_offset = calculate_block_offset(insert_position);
+                // Destroy moved-from object
+                std::allocator_traits<element_allocator_type>::destroy(
+                    element_allocator,
+                    data.blocks[insert_position_block] + insert_position_offset
+                );
+                // Create new one
+                std::allocator_traits<element_allocator_type>::construct(
+                    element_allocator,
+                    data.blocks[insert_position_block] + insert_position_offset,
+                    std::forward<Args>(args) ...
+                );
+            
+                data.begin_index = new_begin;
+                ++data.elements_count;
+            } else {
+                // Move elements after pos (including pos)
+                if (adding_back_element_would_break_invariant()) {
+                    grow_capacity();
+                }
+
+                const auto new_element_position = calculate_end_index();
+                const auto new_element_block = calculate_block_index(new_element_position);
+                const auto new_element_offset = calculate_block_offset(new_element_position);
+                
+                std::allocator_traits<element_allocator_type>::construct(
+                    element_allocator,
+                    data.blocks[new_element_block] + new_element_offset,
+                    std::move(back())
+                );
+                move_assign_range_backwards(
+                    calculate_next_index(data.begin_index, pos - begin()),
+                    calculate_previous_index(new_element_position),
+                    new_element_position
+                );
+
+                const auto insert_position = calculate_next_index(data.begin_index, pos - begin());
+                const auto insert_position_block = calculate_block_index(insert_position);
+                const auto insert_position_offset = calculate_block_offset(insert_position);
+                // Destroy moved-from object
+                std::allocator_traits<element_allocator_type>::destroy(
+                    element_allocator,
+                    data.blocks[insert_position_block] + insert_position_offset
+                );
+                // Create new one
+                std::allocator_traits<element_allocator_type>::construct(
+                    element_allocator,
+                    data.blocks[insert_position_block] + insert_position_offset,
+                    std::forward<Args>(args) ...
+                );
+
+                // Data is moved forward so begin_index does not change
+                ++data.elements_count;
+            }
+
+            // In both cases index of newly inserted element is the same as in pos
+            // Pos could be reused but I don't want to depend on iterator implementation
+            return iterator(&data, pos - begin());
+        }
     }
 
 
@@ -815,7 +934,7 @@ namespace my
     }
 
     template <typename T, typename Allocator>
-    constexpr bool deque<T, Allocator>::adding_front_element_would_force_move() const
+    constexpr bool deque<T, Allocator>::adding_front_element_would_break_invariant() const
     {
         // Blocks like this one are ok:
         //    begin      end
@@ -844,7 +963,7 @@ namespace my
     }
 
     template <typename T, typename Allocator>
-    constexpr bool deque<T, Allocator>::adding_back_element_would_force_move() const
+    constexpr bool deque<T, Allocator>::adding_back_element_would_break_invariant() const
     {
         auto end_index = calculate_end_index();
         auto new_end_index = calculate_next_index(end_index);
@@ -948,6 +1067,40 @@ namespace my
     }
 
     template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::move_assign_range(size_type source_begin, size_type source_end, size_type destination_begin)
+    {
+        while (source_begin != source_end) {
+            auto source_block = calculate_block_index(source_begin);
+            auto source_offset = calculate_block_offset(source_begin);
+
+            auto destination_block = calculate_block_index(destination_begin);
+            auto destination_offset = calculate_block_offset(destination_begin);
+
+            data.blocks[destination_block][destination_offset] = std::move(data.blocks[source_block][source_offset]);
+
+            source_begin = calculate_next_index(source_begin);
+            destination_begin = calculate_next_index(destination_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::move_assign_range_backwards(size_type source_begin, size_type source_end, size_type destination_end)
+    {
+        while (source_end != source_begin) {
+            source_end = calculate_next_index(source_end);
+            destination_end = calculate_next_index(destination_end);
+
+            auto source_block = calculate_block_index(source_end);
+            auto source_offset = calculate_block_offset(source_end);
+
+            auto destination_block = calculate_block_index(destination_end);
+            auto destination_offset = calculate_block_offset(destination_end);
+
+            data.blocks[destination_block][destination_offset] = std::move(data.blocks[source_block][source_offset]);
+        }
+    }
+
+    template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::allocate_blocks(block_type* begin_block, block_type* end_block)
     {
         for (auto current_block = begin_block; current_block != end_block; ++current_block) {
@@ -983,4 +1136,4 @@ namespace my
     }
 }
 
-#endif /* TOY_SDL_DEQUE_HPP */
+#endif /* DEQUE_HPP */

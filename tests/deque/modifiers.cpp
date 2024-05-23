@@ -499,4 +499,114 @@ TEST_SUITE("Deque modifiers") {
             CHECK(deq[5] == 123);
         }
     }
+
+    TEST_CASE("Emplace with begin should add element to front") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.emplace(deq.cbegin(), 123);
+
+            CHECK(deq.front() == 123);
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq = { 1, 2, 3 };
+
+            deq.emplace(deq.cbegin(), 123);
+
+            CHECK(deq.front() == 123);
+        }
+    }
+
+    TEST_CASE("Emplace with begin multiple times should add multiple elements to front") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.emplace(deq.cbegin(), 3);
+            deq.emplace(deq.cbegin(), 2);
+            deq.emplace(deq.cbegin(), 1);
+
+            CHECK(deq == my::deque<int>{ 1, 2, 3 });
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq = { 4, 5, 6 };
+
+            deq.emplace(deq.cbegin(), 3);
+            deq.emplace(deq.cbegin(), 2);
+            deq.emplace(deq.cbegin(), 1);
+
+            CHECK(deq == my::deque<int>{ 1, 2, 3, 4, 5, 6 });
+        }
+    }
+
+    TEST_CASE("Emplace with end should add element to back") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.emplace(deq.cend(), 123);
+
+            CHECK(deq.back() == 123);
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq = { 1, 2, 3 };
+
+            deq.emplace(deq.cend(), 123);
+
+            CHECK(deq.back() == 123);
+        }
+    }
+
+    TEST_CASE("Emplace with end multiple times should add multiple elements to back") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.emplace(deq.cend(), 1);
+            deq.emplace(deq.cend(), 2);
+            deq.emplace(deq.cend(), 3);
+
+            CHECK(deq == my::deque<int>{ 1, 2, 3 });
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq = { 1, 2, 3 };
+
+            deq.emplace(deq.cend(), 4);
+            deq.emplace(deq.cend(), 5);
+            deq.emplace(deq.cend(), 6);
+
+            CHECK(deq == my::deque<int>{ 1, 2, 3, 4, 5, 6 });
+        }
+    }
+
+    TEST_CASE("Emplace should add elements inside the deque") {
+        SUBCASE("Emplace one element") {
+            my::deque<int> deq = { 1, 1, 1, 1 };
+
+            deq.emplace(deq.cbegin() + 2, 123);
+
+            CHECK(deq == my::deque<int>{ 1, 1, 123, 1, 1 });
+        }
+
+        SUBCASE("Emplace multiple elements") {
+            my::deque<int> deq = { 1, 1, 1, 1 };
+
+            deq.emplace(deq.cbegin() + 2, 4);
+            deq.emplace(deq.cbegin() + 2, 3);
+            deq.emplace(deq.cbegin() + 2, 2);
+
+            CHECK(deq == my::deque<int>{ 1, 1, 2, 3, 4, 1, 1 });
+        }
+
+        SUBCASE("Emplace using returned iterator") {
+            my::deque<int> deq = { 1, 1, 1, 1 };
+
+            auto iter1 = deq.emplace(deq.cbegin() + 2, 4);
+            auto iter2 = deq.emplace(iter1, 3);
+            deq.emplace(iter2, 2);
+
+            CHECK(deq == my::deque<int>{ 1, 1, 2, 3, 4, 1, 1 });
+        }
+    }
 }
