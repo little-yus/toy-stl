@@ -109,6 +109,7 @@ namespace my
 
         constexpr iterator insert(const_iterator pos, const T& value);
         constexpr iterator insert(const_iterator pos, T&& value);
+        constexpr iterator insert(const_iterator pos, size_type count, const T& value);
         template< class... Args >
         constexpr iterator emplace(const_iterator pos, Args&&... args);
 
@@ -580,6 +581,165 @@ namespace my
     constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, T&& value)
     {
         return emplace(pos, std::move(value));
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, size_type count, const T& value)
+    {
+        if (count == 0) {
+            return pos;
+        }
+
+        if (pos == cbegin()) {
+            reserve_front(count);
+            copy_construct_range_values_backwards(data.begin_index, count, value);
+            data.elements_count += count;
+            data.begin_index = calculate_previous_index(data.begin_index, count);
+            
+            return begin();
+        }
+        
+        if (pos == cend()) {
+            reserve_back(count);
+            copy_construct_range_values(calculate_end_index(), count, value);
+            data.elements_count += count;
+
+            return end();
+        }
+
+        if (is_closer_to_begin(pos)) {
+            reserve_front(count);
+            const auto elements_to_move = pos - cbegin();
+
+            if (count < elements_to_move) {
+                // First count elements are moved into uninitialized memory
+                move_construct_range(
+                    data.begin_index,
+                    calculate_next_index(data.begin_index, count),
+                    calculate_previous_index(data.begin_index, count)
+                );
+
+                // Other elements are moved to begin
+                move_assign_range(
+                    calculate_next_index(data.begin_index, count),
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    data.begin_index
+                );
+
+                // The gap is filled with copies of value
+                copy_assign_range(
+                    calculate_next_index(data.begin_index, elements_to_move - count),
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    value
+                );
+            }
+
+            if (count == elements_to_move) {
+                // Trivial case
+                // All elements before pos are moved to uninitialized memory
+                move_construct_range(
+                    data.begin_index, 
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    calculate_previous_index(data.begin_index, elements_to_move)
+                );
+
+                // Assign copies of value to moved-from objects
+                copy_assign_range(
+                    data.begin_index, 
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    value
+                );
+            }
+
+            if (count > elements_to_move) {
+                // Move first (elements_to_move) elements to uninitialized memory
+                move_construct_range(
+                    data.begin_index,
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    calculate_previous_index(data.begin_index, count)
+                );
+
+                // Construct (count - elements_to_move) copies of value in uninitialized memory
+                copy_construct_range_values(
+                    calculate_previous_index(data.begin_index, count - elements_to_move),
+                    count - elements_to_move, // This is not end index, but size of range
+                    value
+                );
+
+                // Fill moved-from elements with copies of value 
+                copy_assign_range(
+                    data.begin_index, 
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    value
+                );
+            }
+        } else {
+            reserve_back(count);
+            const auto elements_to_move = cend() - pos;
+            const auto end_index = calculate_end_index();
+
+            if (count < elements_to_move) {
+                // Move last (count) elements to uninitialized memory
+                move_construct_range(
+                    calculate_previous_index(end_index, count),
+                    end_index,
+                    end_index
+                );
+
+                // Move other (elements_to_move - count) elements to the end
+                move_assign_range(
+                    calculate_previous_index(end_index, elements_to_move),
+                    calculate_previous_index(end_index, count),
+                    calculate_previous_index(end_index, elements_to_move - count)
+                );
+
+                // Fill the gap with the copies of value
+                copy_assign_range(
+                    calculate_previous_index(end_index, elements_to_move),
+                    calculate_previous_index(end_index, elements_to_move - count),
+                    value
+                );
+            }
+
+            if (count == elements_to_move) {
+                // Move all elements after pos (including pos) to uninitialized memory
+                move_construct_range(
+                    calculate_previous_index(end_index, count),
+                    end_index,
+                    end_index
+                );
+
+                // Copy assign value to all moved-from objects
+                copy_assign_range(
+                    calculate_previous_index(end_index, count), 
+                    end_index,
+                    value
+                );
+            }
+
+            if (count > elements_to_move) {
+                // Move all elements after pos (including pos) (count) places forward to make space for new values
+                move_construct_range(
+                    calculate_previous_index(end_index, elements_to_move),
+                    end_index,
+                    calculate_next_index(end_index, count - elements_to_move)
+                );
+
+                // Construct (count - elements_to_move) copies of value in uninitialized memory
+                copy_construct_range_values(
+                    end_index,
+                    count - elements_to_move, // Number of elements
+                    value
+                );
+
+                // Assign copies of value to moved-from elements
+                copy_assign_range(
+                    calculate_previous_index(end_index, elements_to_move),
+                    end_index,
+                    value
+                );
+            }
+        }
     }
 
     template <typename T, typename Allocator>
