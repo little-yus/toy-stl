@@ -155,7 +155,7 @@ namespace my
         constexpr size_type calculate_previous_index(size_type current_index, size_type offset = 1) const;
         constexpr size_type calculate_next_index(size_type current_index, size_type offset = 1) const;
 
-        constexpr size_type calculate_free_back_elements_count() const;
+        constexpr size_type calculate_free_back_elements_count() const; // TODO: Maybe replace this with capacity_back and remove?
 
         constexpr bool adding_back_element_would_break_invariant() const;
         constexpr bool adding_front_element_would_break_invariant() const;
@@ -176,6 +176,16 @@ namespace my
         constexpr void allocate_blocks_if_not_allocated(block_type* begin_block, block_type* end_block);
 
         constexpr bool all_blocks_are_allocated() const;
+
+        constexpr size_type next_block_index(size_type block_index) const;
+        constexpr size_type previous_block_index(size_type block_index) const;
+
+        // This would be capacity if all blocks were allocated
+        constexpr size_type potential_capacity_back() const;
+        constexpr size_type potential_capacity_front() const;
+
+        constexpr void reserve_back(size_type n);
+        constexpr void reserve_front(size_type n);
 
         // Member variables
         element_allocator_type element_allocator { };
@@ -1119,7 +1129,7 @@ namespace my
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::calculate_free_back_elements_count() const
     {
         const auto number_of_free_elements_in_first_block = calculate_block_offset(data.begin_index);
-        return capacity() - number_of_free_elements_in_first_block;
+        return capacity() - number_of_free_elements_in_first_block; // FIXME: What about all filled elements?
     }
 
     template <typename T, typename Allocator>
@@ -1273,7 +1283,7 @@ namespace my
     constexpr void deque<T, Allocator>::allocate_blocks_unsafe(block_type* begin_block, block_type* end_block)
     {
         // Should only be used if you are 100% sure that you will only overwrite garbage pointers
-        // For example when you just allocated array of block pointers, but not yet initialized it with nulls
+        // For example when you just allocated array of block pointers, but not initialized it with nulls yet
         for (auto current_block = begin_block; current_block != end_block; ++current_block) {
             *current_block = std::allocator_traits<element_allocator_type>::allocate(element_allocator, block_size);
         }
@@ -1293,6 +1303,109 @@ namespace my
     constexpr bool deque<T, Allocator>::all_blocks_are_allocated() const
     {
         return std::all_of(data.blocks, data.blocks + data.blocks_count, [](block_type block){ return block != nullptr; });
+    }
+
+
+    
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::size_type deque<T, Allocator>::potential_capacity_back() const
+    {
+        if (is_memory_filled()) {
+            return 0;
+        }
+
+        // Elements before begin_index in the same block are reserved for insertion to the front only
+        const auto unavailable_elements = calculate_block_offset(data.begin_index);
+        return capacity() - data.elements_count - unavailable_elements;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::size_type deque<T, Allocator>::potential_capacity_front() const
+    {
+        if (is_memory_filled()) {
+            return 0;
+        }
+
+        // Elements after end_index in the same block are reserved for insertion to the back only
+        const auto unavailable_elements = data.block_size - calculate_block_offset(calculate_end_index());
+        return capacity() - data.elements_count - unavailable_elements;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::reserve_back(size_type n)
+    {
+        if (potential_capacity_back() < n) { // Allocate larger array of blocks
+            // Calculate required number of new blocks
+            const auto extra_elements_count = n - potential_capacity_back();
+            const auto extra_blocks_count = (extra_elements_count + block_size - 1) / block_size;
+            const auto new_blocks_count = data.blocks_count + extra_blocks_count;
+
+            // Allocate new array for block and copy old data
+            auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
+            std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
+            std::allocator_traits<block_allocator_type>::deallocate(data.blocks, data.blocks_count);
+            data.blocks = new_blocks;
+            data.blocks_count = new_blocks_count;
+        }
+
+        const auto free_elements_in_last_block = data.block_size - calculate_block_offset(calculate_end_index());
+        auto allocated_elements = free_elements_in_last_block;
+
+        size_type block;
+        if (free_elements_in_last_block > 0) {
+            block = next_block_index(calculate_block_index(calculate_end_index()));
+        } else {
+            block = calculate_block_index(calculate_end_index());
+        }
+
+        for (; allocated_elements < n; block = next_block_index(block), allocated_elements += data.block_size) {
+            if (data.blocks[block] == nullptr) {
+                data.blocks[block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, data.block_size);
+            }
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::reserve_front(size_type n)
+    {
+        if (potential_capacity_front() < n) { // Allocate larger array of blocks
+            // Calculate required number of new blocks
+            const auto extra_elements_count = n - potential_capacity_front();
+            const auto extra_blocks_count = (extra_elements_count + block_size - 1) / block_size;
+            const auto new_blocks_count = data.blocks_count + extra_blocks_count;
+
+            // Allocate new array for block and copy old data
+            auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
+            std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
+            std::allocator_traits<block_allocator_type>::deallocate(data.blocks, data.blocks_count);
+            data.blocks = new_blocks;
+            data.blocks_count = new_blocks_count;
+        }
+        
+        const auto free_elements_in_first_block = calculate_block_offset(data.begin_index);
+        auto allocated_elements = free_elements_in_first_block;
+        for (
+            auto block = previous_block_index(calculate_block_index(data.begin_index));
+            allocated_elements < n;
+            block = previous_block_index(block), allocated_elements += data.block_size
+        ) {
+            if (data.blocks[block] == nullptr) {
+                data.blocks[block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, data.block_size);
+            }
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::size_type deque<T, Allocator>::next_block_index(size_type block_index) const
+    {
+        return (block_index + 1) % data.blocks_count;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::size_type deque<T, Allocator>::previous_block_index(size_type block_index) const
+    {
+        return (data.blocks_count + block_index - 1) % data.blocks_count;
     }
 }
 
