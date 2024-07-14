@@ -187,6 +187,9 @@ namespace my
         constexpr void reserve_back(size_type n);
         constexpr void reserve_front(size_type n);
 
+        constexpr void move_construct_range(size_type source_begin, size_type source_end, size_type destination_begin);
+        constexpr void copy_assign_range(size_type source_begin, size_type source_end, size_type destination_begin);
+
         // Member variables
         element_allocator_type element_allocator { };
         block_allocator_type block_allocator { }; // Name is a bit confusing, because it allocated arrays of pointers to blocks and not actual blocks
@@ -597,12 +600,12 @@ namespace my
     constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, size_type count, const T& value)
     {
         if (count == 0) {
-            return pos;
+            return begin() + (pos - cbegin());
         }
 
         if (pos == cbegin()) {
             reserve_front(count);
-            copy_construct_range_values_backwards(data.begin_index, count, value);
+            copy_construct_range_values(calculate_previous_index(data.begin_index, count), count, value);
             data.elements_count += count;
             data.begin_index = calculate_previous_index(data.begin_index, count);
             
@@ -617,7 +620,8 @@ namespace my
             return end();
         }
 
-        if (is_closer_to_begin(pos)) {
+        bool is_pos_closer_to_begin = pos - cbegin() < cend() - pos;
+        if (is_pos_closer_to_begin) {
             reserve_front(count);
             const auto elements_to_move = pos - cbegin();
 
@@ -683,6 +687,10 @@ namespace my
                     value
                 );
             }
+
+            data.begin_index = calculate_previous_index(data.begin_index, count);
+            data.elements_count += count;
+            return begin() + elements_to_move;
         } else {
             reserve_back(count);
             const auto elements_to_move = cend() - pos;
@@ -749,6 +757,9 @@ namespace my
                     value
                 );
             }
+
+            data.elements_count += count;
+            return end() - (count + elements_to_move);
         }
     }
 
@@ -1338,30 +1349,65 @@ namespace my
         if (potential_capacity_back() < n) { // Allocate larger array of blocks
             // Calculate required number of new blocks
             const auto extra_elements_count = n - potential_capacity_back();
-            const auto extra_blocks_count = (extra_elements_count + block_size - 1) / block_size;
-            const auto new_blocks_count = data.blocks_count + extra_blocks_count;
+            const auto extra_blocks_count = ceil_division(extra_elements_count, block_size);
+            const auto new_blocks_count = std::max<size_type>(data.blocks_count + extra_blocks_count, 2);
 
             // Allocate new array for block and copy old data
             auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
-            std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
-            std::allocator_traits<block_allocator_type>::deallocate(data.blocks, data.blocks_count);
+            auto begin_block_index = calculate_block_index(data.begin_index);
+
+            if (data.blocks == nullptr) {
+                allocate_blocks_unsafe(new_blocks, new_blocks + new_blocks_count);
+            } else if (data.begin_index < calculate_end_index()) {
+                // Deque looks like this:
+                //    begin      end
+                //      v         v
+                // [ | |#|#|#|#|#| ]
+                const auto front_empty_blocks_count = begin_block_index;
+                const auto back_empty_blocks_count = data.blocks_count - ceil_division(calculate_end_index(), block_size);
+                const auto filled_blocks_count = data.blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
+
+                // Copy all blocks
+                std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
+                allocate_blocks_if_not_allocated(new_blocks, new_blocks + front_empty_blocks_count);
+                allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + data.blocks_count);
+                allocate_blocks(new_blocks + data.blocks_count, new_blocks + new_blocks_count);
+            } else {
+                // And here we deal with this case:
+                //       end    begin
+                //        v       v
+                // [#|#|#| | | | |#]
+                const auto back_blocks_count = data.blocks_count - begin_block_index;
+                const auto front_blocks_count = ceil_division(calculate_end_index(), block_size);
+                std::copy(data.blocks + begin_block_index, data.blocks + data.blocks_count, new_blocks);
+                std::copy(data.blocks, data.blocks + front_blocks_count, new_blocks + back_blocks_count);
+                std::copy(
+                    data.blocks + front_blocks_count,
+                    data.blocks + back_blocks_count,
+                    new_blocks + back_blocks_count + front_blocks_count
+                ); // Copy free blocks, because they can be empty but allocated and we don't want to leak
+                allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + data.blocks_count);
+                allocate_blocks(new_blocks + data.blocks_count, new_blocks + new_blocks_count);
+            }
+            
+            deallocate_blocks_array();
             data.blocks = new_blocks;
             data.blocks_count = new_blocks_count;
-        }
-
-        const auto free_elements_in_last_block = data.block_size - calculate_block_offset(calculate_end_index());
-        auto allocated_elements = free_elements_in_last_block;
-
-        size_type block;
-        if (free_elements_in_last_block > 0) {
-            block = next_block_index(calculate_block_index(calculate_end_index()));
         } else {
-            block = calculate_block_index(calculate_end_index());
-        }
+            const auto free_elements_in_last_block = data.block_size - calculate_block_offset(calculate_end_index());
+            auto allocated_elements = free_elements_in_last_block;
 
-        for (; allocated_elements < n; block = next_block_index(block), allocated_elements += data.block_size) {
-            if (data.blocks[block] == nullptr) {
-                data.blocks[block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, data.block_size);
+            size_type block;
+            if (free_elements_in_last_block > 0) {
+                block = next_block_index(calculate_block_index(calculate_end_index()));
+            } else {
+                block = calculate_block_index(calculate_end_index());
+            }
+
+            for (; allocated_elements < n; block = next_block_index(block), allocated_elements += data.block_size) {
+                if (data.blocks[block] == nullptr) {
+                    data.blocks[block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, data.block_size);
+                }
             }
         }
     }
@@ -1372,26 +1418,61 @@ namespace my
         if (potential_capacity_front() < n) { // Allocate larger array of blocks
             // Calculate required number of new blocks
             const auto extra_elements_count = n - potential_capacity_front();
-            const auto extra_blocks_count = (extra_elements_count + block_size - 1) / block_size;
-            const auto new_blocks_count = data.blocks_count + extra_blocks_count;
+            const auto extra_blocks_count = ceil_division(extra_elements_count, block_size);
+            const auto new_blocks_count = std::max<size_type>(data.blocks_count + extra_blocks_count, 2);
 
             // Allocate new array for block and copy old data
             auto new_blocks = std::allocator_traits<block_allocator_type>::allocate(block_allocator, new_blocks_count);
-            std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
-            std::allocator_traits<block_allocator_type>::deallocate(data.blocks, data.blocks_count);
+            auto begin_block_index = calculate_block_index(data.begin_index);
+            
+            if (data.blocks == nullptr) {
+                allocate_blocks_unsafe(new_blocks, new_blocks + new_blocks_count);
+            } else if (data.begin_index < calculate_end_index()) {
+                // Deque looks like this:
+                //    begin      end
+                //      v         v
+                // [ | |#|#|#|#|#| ]
+                const auto front_empty_blocks_count = begin_block_index;
+                const auto back_empty_blocks_count = data.blocks_count - ceil_division(calculate_end_index(), block_size);
+                const auto filled_blocks_count = data.blocks_count - (front_empty_blocks_count + back_empty_blocks_count);
+
+                // Copy all blocks
+                std::copy(data.blocks, data.blocks + data.blocks_count, new_blocks);
+                allocate_blocks_if_not_allocated(new_blocks, new_blocks + front_empty_blocks_count);
+                allocate_blocks_if_not_allocated(new_blocks + front_empty_blocks_count + filled_blocks_count, new_blocks + data.blocks_count);
+                allocate_blocks(new_blocks + data.blocks_count, new_blocks + new_blocks_count);
+            } else {
+                // And here we deal with this case:
+                //       end    begin
+                //        v       v
+                // [#|#|#| | | | |#]
+                const auto back_blocks_count = data.blocks_count - begin_block_index;
+                const auto front_blocks_count = ceil_division(calculate_end_index(), block_size);
+                std::copy(data.blocks + begin_block_index, data.blocks + data.blocks_count, new_blocks);
+                std::copy(data.blocks, data.blocks + front_blocks_count, new_blocks + back_blocks_count);
+                std::copy(
+                    data.blocks + front_blocks_count,
+                    data.blocks + back_blocks_count,
+                    new_blocks + back_blocks_count + front_blocks_count
+                ); // Copy free blocks, because they can be empty but allocated and we don't want to leak
+                allocate_blocks_if_not_allocated(new_blocks + back_blocks_count + front_blocks_count, new_blocks + data.blocks_count);
+                allocate_blocks(new_blocks + data.blocks_count, new_blocks + new_blocks_count);
+            }
+            
+            deallocate_blocks_array();
             data.blocks = new_blocks;
             data.blocks_count = new_blocks_count;
-        }
-        
-        const auto free_elements_in_first_block = calculate_block_offset(data.begin_index);
-        auto allocated_elements = free_elements_in_first_block;
-        for (
-            auto block = previous_block_index(calculate_block_index(data.begin_index));
-            allocated_elements < n;
-            block = previous_block_index(block), allocated_elements += data.block_size
-        ) {
-            if (data.blocks[block] == nullptr) {
-                data.blocks[block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, data.block_size);
+        } else {
+            const auto free_elements_in_first_block = calculate_block_offset(data.begin_index);
+            auto allocated_elements = free_elements_in_first_block;
+            for (
+                auto block = previous_block_index(calculate_block_index(data.begin_index));
+                allocated_elements < n;
+                block = previous_block_index(block), allocated_elements += data.block_size
+            ) {
+                if (data.blocks[block] == nullptr) {
+                    data.blocks[block] = std::allocator_traits<element_allocator_type>::allocate(element_allocator, data.block_size);
+                }
             }
         }
     }
@@ -1406,6 +1487,45 @@ namespace my
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::previous_block_index(size_type block_index) const
     {
         return (data.blocks_count + block_index - 1) % data.blocks_count;
+    }
+
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::move_construct_range(size_type source_begin, size_type source_end, size_type destination_begin)
+    {
+        while (source_begin != source_end) {
+            auto source_block = calculate_block_index(source_begin);
+            auto source_offset = calculate_block_offset(source_begin);
+
+            auto destination_block = calculate_block_index(destination_begin);
+            auto destination_offset = calculate_block_offset(destination_begin);
+
+            std::allocator_traits<element_allocator_type>::construct(
+                element_allocator,
+                data.blocks[destination_block] + destination_offset,
+                std::move(data.blocks[source_block][source_offset])
+            );
+
+            source_begin = calculate_next_index(source_begin);
+            destination_begin = calculate_next_index(destination_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::copy_assign_range(size_type source_begin, size_type source_end, size_type destination_begin)
+    {
+        while (source_begin != source_end) {
+            auto source_block = calculate_block_index(source_begin);
+            auto source_offset = calculate_block_offset(source_begin);
+
+            auto destination_block = calculate_block_index(destination_begin);
+            auto destination_offset = calculate_block_offset(destination_begin);
+
+            data.blocks[destination_block][destination_offset] = data.blocks[source_block][source_offset];
+
+            source_begin = calculate_next_index(source_begin);
+            destination_begin = calculate_next_index(destination_begin);
+        }
     }
 }
 

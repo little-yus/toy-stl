@@ -473,7 +473,7 @@ TEST_SUITE("Deque modifiers") {
     }
 
     TEST_CASE("Resize up should insert correct new values") {
-        SUBCASE("Simple resize should insert default constructed elements") {
+        SUBCASE("Resize should insert default constructed elements") {
             my::deque<int> deq;
             deq.push_back(1);
             deq.push_back(2);
@@ -486,7 +486,7 @@ TEST_SUITE("Deque modifiers") {
             CHECK(deq[5] == 0);
         }
 
-        SUBCASE("Resize with parameter should insert copies of provided value") {
+        SUBCASE("Resize should insert copies of provided value") {
             my::deque<int> deq;
             deq.push_back(1);
             deq.push_back(2);
@@ -607,6 +607,42 @@ TEST_SUITE("Deque modifiers") {
             deq.emplace(iter2, 2);
 
             CHECK(deq == my::deque<int>{ 1, 1, 2, 3, 4, 1, 1 });
+        }
+    }
+
+    TEST_CASE("Insert should add multiple copies to front") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.insert(deq.cbegin(), 3, 1);
+
+            CHECK(deq == my::deque<int>{ 1, 1, 1 });
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq = { 1, 2, 3 };
+
+            deq.insert(deq.cbegin(), 3, 0);
+
+            CHECK(deq == my::deque<int>{ 0, 0, 0, 1, 2, 3 });
+        }
+    }
+
+    TEST_CASE("Insert should add multiple copies to back") {
+        SUBCASE("Empty deque") {
+            my::deque<int> deq;
+
+            deq.insert(deq.cend(), 3, 1);
+
+            CHECK(deq == my::deque<int>{ 1, 1, 1 });
+        }
+
+        SUBCASE("Non-empty deque") {
+            my::deque<int> deq = { 1, 2, 3 };
+
+            deq.insert(deq.cend(), 3, 0);
+
+            CHECK(deq == my::deque<int>{ 1, 2, 3, 0, 0, 0 });
         }
     }
 }
