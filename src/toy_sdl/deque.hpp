@@ -194,7 +194,7 @@ namespace my
         constexpr void reserve_front(size_type n);
 
         constexpr void move_construct_range(size_type source_begin, size_type source_end, size_type destination_begin);
-        constexpr void copy_assign_range_values(size_type range_begin, size_type range_end, const value_type& value);
+        constexpr void copy_assign_range_values(size_type destination_begin, size_type destination_end, const value_type& value);
         constexpr void copy_assign_range(size_type source_begin, size_type source_end, size_type destination_begin);
         template <std::input_iterator InputIt>
         constexpr void copy_assign_range(InputIt source_begin, InputIt source_end, size_type destination_begin);
@@ -650,7 +650,7 @@ namespace my
                 );
 
                 // The gap is filled with copies of value
-                copy_assign_range(
+                copy_assign_range_values(
                     calculate_next_index(data.begin_index, elements_to_move - count),
                     calculate_next_index(data.begin_index, elements_to_move),
                     value
@@ -667,7 +667,7 @@ namespace my
                 );
 
                 // Assign copies of value to moved-from objects
-                copy_assign_range(
+                copy_assign_range_values(
                     data.begin_index, 
                     calculate_next_index(data.begin_index, elements_to_move),
                     value
@@ -690,7 +690,7 @@ namespace my
                 );
 
                 // Fill moved-from elements with copies of value 
-                copy_assign_range(
+                copy_assign_range_values(
                     data.begin_index, 
                     calculate_next_index(data.begin_index, elements_to_move),
                     value
@@ -721,7 +721,7 @@ namespace my
                 );
 
                 // Fill the gap with the copies of value
-                copy_assign_range(
+                copy_assign_range_values(
                     calculate_previous_index(end_index, elements_to_move),
                     calculate_previous_index(end_index, elements_to_move - count),
                     value
@@ -737,7 +737,7 @@ namespace my
                 );
 
                 // Copy assign value to all moved-from objects
-                copy_assign_range(
+                copy_assign_range_values(
                     calculate_previous_index(end_index, count), 
                     end_index,
                     value
@@ -760,7 +760,7 @@ namespace my
                 );
 
                 // Assign copies of value to moved-from elements
-                copy_assign_range(
+                copy_assign_range_values(
                     calculate_previous_index(end_index, elements_to_move),
                     end_index,
                     value
@@ -1745,6 +1745,19 @@ namespace my
             data.blocks[destination_block][destination_offset] = *source_begin;
 
             ++source_begin;
+            destination_begin = calculate_next_index(destination_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::copy_assign_range_values(size_type destination_begin, size_type destination_end, const value_type& value)
+    {
+        while (destination_begin != destination_end) {
+            auto destination_block = calculate_block_index(destination_begin);
+            auto destination_offset = calculate_block_offset(destination_begin);
+
+            data.blocks[destination_block][destination_offset] = value;
+
             destination_begin = calculate_next_index(destination_begin);
         }
     }
