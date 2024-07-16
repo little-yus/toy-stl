@@ -9,6 +9,7 @@
 #include <memory>
 #include <cassert>
 #include <stdexcept>
+#include <deque>
 
 namespace my
 {
@@ -110,6 +111,8 @@ namespace my
         constexpr iterator insert(const_iterator pos, const T& value);
         constexpr iterator insert(const_iterator pos, T&& value);
         constexpr iterator insert(const_iterator pos, size_type count, const T& value);
+        template <std::input_iterator InputIt>
+        constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
         template< class... Args >
         constexpr iterator emplace(const_iterator pos, Args&&... args);
 
@@ -167,6 +170,8 @@ namespace my
         constexpr void destroy_range(size_type range_begin, size_type range_size);
         constexpr void default_construct_range(size_type range_begin, size_type range_size);
         constexpr void copy_construct_range_values(size_type range_begin, size_type range_size, const value_type& value);
+        template <std::input_iterator InputIt>
+        constexpr void copy_construct_range_values(size_type range_begin, size_type range_size, InputIt first, InputIt last);
 
         constexpr void move_assign_range(size_type source_begin, size_type source_end, size_type destination_begin);
         constexpr void move_assign_range_backwards(size_type source_begin, size_type source_end, size_type destination_end);
@@ -188,7 +193,10 @@ namespace my
         constexpr void reserve_front(size_type n);
 
         constexpr void move_construct_range(size_type source_begin, size_type source_end, size_type destination_begin);
+        constexpr void copy_assign_range_values(size_type range_begin, size_type range_end, const value_type& value);
         constexpr void copy_assign_range(size_type source_begin, size_type source_end, size_type destination_begin);
+        template <std::input_iterator InputIt>
+        constexpr void copy_assign_range(InputIt source_begin, InputIt source_end, size_type destination_begin);
 
         // Member variables
         element_allocator_type element_allocator { };
@@ -764,6 +772,177 @@ namespace my
     }
 
     template <typename T, typename Allocator>
+    template <std::input_iterator InputIt>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, InputIt first, InputIt last)
+    {
+        const auto count = std::distance(first, last);
+        if (count == 0) {
+            return begin() + (pos - cbegin());
+        }
+
+        if (pos == cbegin()) {
+            reserve_front(count);
+            copy_construct_range_values(calculate_previous_index(data.begin_index, count), count, first, last);
+            data.elements_count += count;
+            data.begin_index = calculate_previous_index(data.begin_index, count);
+            
+            return begin();
+        }
+        
+        if (pos == cend()) {
+            reserve_back(count);
+            copy_construct_range_values(calculate_end_index(), count, first, last);
+            data.elements_count += count;
+
+            return end();
+        }
+
+        bool is_pos_closer_to_begin = pos - cbegin() < cend() - pos;
+        if (is_pos_closer_to_begin) {
+            reserve_front(count);
+            const auto elements_to_move = pos - cbegin();
+
+            if (count < elements_to_move) {
+                // First count elements are moved into uninitialized memory
+                move_construct_range(
+                    data.begin_index,
+                    calculate_next_index(data.begin_index, count),
+                    calculate_previous_index(data.begin_index, count)
+                );
+
+                // Other elements are moved to begin
+                move_assign_range(
+                    calculate_next_index(data.begin_index, count),
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    data.begin_index
+                );
+
+                // Fill the gap with elements from iterator range
+                copy_assign_range(
+                    first,
+                    last,
+                    calculate_next_index(data.begin_index, elements_to_move - count)
+                );
+            }
+
+            if (count == elements_to_move) {
+                // Trivial case
+                // All elements before pos are moved to uninitialized memory
+                move_construct_range(
+                    data.begin_index, 
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    calculate_previous_index(data.begin_index, elements_to_move)
+                );
+
+                // Assign copies of elements from iterator range to moved-from objects
+                copy_assign_range(
+                    first,
+                    last,
+                    data.begin_index
+                );
+            }
+
+            if (count > elements_to_move) {
+                // Move first (elements_to_move) elements to uninitialized memory
+                move_construct_range(
+                    data.begin_index,
+                    calculate_next_index(data.begin_index, elements_to_move),
+                    calculate_previous_index(data.begin_index, count)
+                );
+
+                // Construct (count - elements_to_move) elements from iterator range in uninitialized memory
+                copy_construct_range_values(
+                    calculate_previous_index(data.begin_index, count - elements_to_move),
+                    count - elements_to_move,
+                    first,
+                    last
+                );
+
+                // Fill moved-from elements with copies of elements from iterator range
+                copy_assign_range(
+                    first + (count - elements_to_move),
+                    last,
+                    data.begin_index
+                );
+            }
+
+            data.begin_index = calculate_previous_index(data.begin_index, count);
+            data.elements_count += count;
+            return begin() + elements_to_move;
+        } else {
+            reserve_back(count);
+            const auto elements_to_move = cend() - pos;
+            const auto end_index = calculate_end_index();
+
+            if (count < elements_to_move) {
+                // Move last (count) elements to uninitialized memory
+                move_construct_range(
+                    calculate_previous_index(end_index, count),
+                    end_index,
+                    end_index
+                );
+
+                // Move other (elements_to_move - count) elements to the end
+                move_assign_range(
+                    calculate_previous_index(end_index, elements_to_move),
+                    calculate_previous_index(end_index, count),
+                    calculate_previous_index(end_index, elements_to_move - count)
+                );
+
+                // Copy values from iterator range
+                copy_assign_range(
+                    first,
+                    last,
+                    calculate_previous_index(end_index, elements_to_move)
+                );
+            }
+
+            if (count == elements_to_move) {
+                // Move all elements after pos (including pos) to uninitialized memory
+                move_construct_range(
+                    calculate_previous_index(end_index, count),
+                    end_index,
+                    end_index
+                );
+
+                // Copy values from iterator range
+                copy_assign_range(
+                    first,
+                    last,
+                    calculate_previous_index(end_index, count)
+                );
+            }
+
+            if (count > elements_to_move) {
+                // Move all elements after pos (including pos) (count) places forward to make space for new values
+                move_construct_range(
+                    calculate_previous_index(end_index, elements_to_move),
+                    end_index,
+                    calculate_next_index(end_index, count - elements_to_move)
+                );
+
+                // Construct (count - elements_to_move) values from iterator range in uninitialized memory
+                copy_construct_range_values(
+                    end_index,
+                    count - elements_to_move, // Number of elements
+                    first + elements_to_move,
+                    last
+                );
+
+                // Assign copies of value to moved-from elements
+                copy_assign_range(
+                    first,
+                    first + elements_to_move,
+                    calculate_previous_index(end_index, elements_to_move)
+                );
+            }
+
+            data.elements_count += count;
+            return end() - (count + elements_to_move);
+        }
+    }
+
+    template <typename T, typename Allocator>
     template< class... Args >
     constexpr deque<T, Allocator>::iterator deque<T, Allocator>::emplace(const_iterator pos, Args&&... args)
     {
@@ -1248,6 +1427,26 @@ namespace my
     }
 
     template <typename T, typename Allocator>
+    template <std::input_iterator InputIt>
+    constexpr void deque<T, Allocator>::copy_construct_range_values(size_type range_begin, size_type range_size, InputIt first, InputIt last)
+    {
+        // range_begin is the same type of index as begin_index
+        for (size_type i = 0; i < range_size; ++i) {
+            auto current_block = calculate_block_index(range_begin);
+            auto current_offset = calculate_block_offset(range_begin);
+
+            std::allocator_traits<element_allocator_type>::construct(
+                element_allocator,
+                data.blocks[current_block] + current_offset,
+                *first
+            );
+
+            ++first;
+            range_begin = calculate_next_index(range_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
     constexpr void deque<T, Allocator>::move_assign_range(size_type source_begin, size_type source_end, size_type destination_begin)
     {
         while (source_begin != source_end) {
@@ -1524,6 +1723,21 @@ namespace my
             data.blocks[destination_block][destination_offset] = data.blocks[source_block][source_offset];
 
             source_begin = calculate_next_index(source_begin);
+            destination_begin = calculate_next_index(destination_begin);
+        }
+    }
+
+    template <typename T, typename Allocator>
+    template <std::input_iterator InputIt>
+    constexpr void deque<T, Allocator>::copy_assign_range(InputIt source_begin, InputIt source_end, size_type destination_begin)
+    {
+        while (source_begin != source_end) {
+            auto destination_block = calculate_block_index(destination_begin);
+            auto destination_offset = calculate_block_offset(destination_begin);
+
+            data.blocks[destination_block][destination_offset] = *source_begin;
+
+            ++source_begin;
             destination_begin = calculate_next_index(destination_begin);
         }
     }
