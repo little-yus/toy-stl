@@ -113,6 +113,7 @@ namespace my
         constexpr iterator insert(const_iterator pos, size_type count, const T& value);
         template <std::input_iterator InputIt>
         constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
+        constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
         template< class... Args >
         constexpr iterator emplace(const_iterator pos, Args&&... args);
 
@@ -940,6 +941,12 @@ namespace my
             data.elements_count += count;
             return end() - (count + elements_to_move);
         }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::insert(const_iterator pos, std::initializer_list<T> init_list)
+    {
+        return insert(pos, std::begin(init_list), std::end(init_list));
     }
 
     template <typename T, typename Allocator>
