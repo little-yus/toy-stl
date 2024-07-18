@@ -114,8 +114,12 @@ namespace my
         template <std::input_iterator InputIt>
         constexpr iterator insert(const_iterator pos, InputIt first, InputIt last);
         constexpr iterator insert(const_iterator pos, std::initializer_list<T> init_list);
+
         template< class... Args >
         constexpr iterator emplace(const_iterator pos, Args&&... args);
+
+        constexpr iterator erase(const_iterator pos);
+        constexpr iterator erase(const_iterator first, const_iterator last);
 
         // Iterators
         constexpr iterator begin() noexcept;
@@ -1046,6 +1050,55 @@ namespace my
             // Pos could be reused but I don't want to depend on iterator implementation
             return iterator(&data, pos - begin());
         }
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::erase(const_iterator first, const_iterator last)
+    {
+        if (first == last) {
+            return last;
+        }
+
+        const auto count = last - first;
+
+        if (first == cbegin()) {
+            destroy_range(data.begin_index, count);
+            data.begin_index = calculate_next_index(data.begin_index, count);
+            data.elements_count -= count;
+            return begin();
+        }
+
+        if (last == cend()) {
+            destroy_range(calculate_next_index(data.begin_index, first - cbegin()), count);
+            data.elements_count -= count;
+            return end();
+        }
+
+        // Move minimal amount of elements
+        const auto elements_before = first - cbegin();
+        const auto elements_after = cend() - last;
+        if (elements_before < elements_after) {
+            move_assign_range_backwards(
+                data.begin_index,
+                calculate_next_index(data.begin_index, first - cbegin()),
+                calculate_next_index(data.begin_index, last - cbegin())
+            );
+
+            destroy_range(data.begin_index, count);
+            data.begin_index = calculate_next_index(data.begin_index, count);
+            data.elements_count -= count;
+        } else {
+            move_assign_range(
+                calculate_next_index(data.begin_index, last - cbegin()),
+                calculate_end_index(),
+                calculate_next_index(data.begin_index, first - cbegin())
+            );
+
+            destroy_range(calculate_previous_index(calculate_end_index(), count), count);
+            data.elements_count -= count; 
+        }
+
+        return begin() + elements_before;
     }
 
 
