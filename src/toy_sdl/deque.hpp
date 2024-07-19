@@ -86,6 +86,7 @@ namespace my
         constexpr [[nodiscard]] bool empty() const noexcept;
         constexpr size_type size() const noexcept;
         constexpr size_type max_size() const noexcept;
+        constexpr void shrink_to_fit();
 
         // Modifiers
         constexpr void clear() noexcept;
@@ -429,6 +430,13 @@ namespace my
         const auto max_bytes = std::numeric_limits<difference_type>::max();
         const auto max_blocks = max_bytes / (block_size * sizeof(value_type) + sizeof(block_type));
         return max_blocks * block_size;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr void deque<T, Allocator>::shrink_to_fit()
+    {
+        // This is valid implementation, although a bit lazy
+        return;
     }
 
 
