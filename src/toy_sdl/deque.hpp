@@ -9,7 +9,6 @@
 #include <memory>
 #include <cassert>
 #include <stdexcept>
-#include <deque>
 
 namespace my
 {
@@ -86,6 +85,7 @@ namespace my
         // Capacity
         constexpr [[nodiscard]] bool empty() const noexcept;
         constexpr size_type size() const noexcept;
+        constexpr size_type max_size() const noexcept;
 
         // Modifiers
         constexpr void clear() noexcept;
@@ -421,6 +421,14 @@ namespace my
     constexpr deque<T, Allocator>::size_type deque<T, Allocator>::size() const noexcept
     {
         return data.elements_count;
+    }
+
+    template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::size_type deque<T, Allocator>::max_size() const noexcept
+    {
+        const auto max_bytes = std::numeric_limits<difference_type>::max();
+        const auto max_blocks = max_bytes / (block_size * sizeof(value_type) + sizeof(block_type));
+        return max_blocks * block_size;
     }
 
 
