@@ -1053,6 +1053,13 @@ namespace my
     }
 
     template <typename T, typename Allocator>
+    constexpr deque<T, Allocator>::iterator deque<T, Allocator>::erase(const_iterator pos)
+    {
+        assert((pos != cend()) && "The iterator pos must be valid and dereferenceable"); // From cppreference
+        return erase(pos, pos + 1);
+    }
+
+    template <typename T, typename Allocator>
     constexpr deque<T, Allocator>::iterator deque<T, Allocator>::erase(const_iterator first, const_iterator last)
     {
         if (first == last) {
