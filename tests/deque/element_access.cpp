@@ -1,5 +1,5 @@
 #include "doctest/doctest.h"
-#include "toy_sdl/deque.hpp"
+#include "toy_stl/deque.hpp"
 
 TEST_SUITE("Deque element access") {
     TEST_CASE("Accessing elements using subscript should return correct values") {

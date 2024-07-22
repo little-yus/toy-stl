@@ -1,5 +1,5 @@
 #include "doctest/doctest.h"
-#include "toy_sdl/deque.hpp"
+#include "toy_stl/deque.hpp"
 
 #include <ranges>
 

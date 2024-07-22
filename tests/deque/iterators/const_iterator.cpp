@@ -1,5 +1,5 @@
 #include "doctest/doctest.h"
-#include "toy_sdl/deque.hpp"
+#include "toy_stl/deque.hpp"
 
 TEST_SUITE("Deque const iterators") {
     TEST_CASE("Const begin and cbegin should return same iterator") {
