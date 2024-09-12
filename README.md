@@ -4,7 +4,9 @@ This project implements some components from the C++ Standard Library that I fin
 ## Progress:
 - Containers
 	- [x] `vector`
-	- [ ] `deque` (Work in Progress)
+	- [x] `deque`
+	- [ ] `map` (Work in Progress)
+  	- [ ] `set`
 	- [ ] `unordered_set`
 	- [ ] `unordered_map`
 - Iterators
